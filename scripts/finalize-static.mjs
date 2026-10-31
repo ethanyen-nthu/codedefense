@@ -25,12 +25,12 @@ const assets = all
 assets.push('/', '/privacy');
 const digest = createHash('sha256');
 for (const f of all.sort()) digest.update(await readFile(f));
-const version = 'codedefense-free-' + digest.digest('hex').slice(0, 16);
+const version = 'codeta-' + digest.digest('hex').slice(0, 16);
 await writeFile(
   'out/sw.js',
   `const CACHE=${JSON.stringify(version)};const ASSETS=${JSON.stringify(assets)};
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS))));
-self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('codedefense-free-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
+self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>(key.startsWith('codeta-')||key.startsWith('codedefense-free-'))&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{if(event.request.method!=='GET'||new URL(event.request.url).origin!==self.location.origin)return;event.respondWith(fetch(event.request).catch(()=>caches.match(event.request).then(cached=>cached||new Response('Offline: this asset was not cached. Reconnect once to refresh the application.',{status:503}))));});
 `,
 );

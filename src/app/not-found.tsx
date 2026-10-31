@@ -4,7 +4,7 @@ export default function NotFound() {
     <main className="content prose-page">
       <h1>This page is missing.</h1>
       <Link className="btn primary" href="/">
-        Return to CodeDefense
+        Return to CodeTA
       </Link>
     </main>
   );

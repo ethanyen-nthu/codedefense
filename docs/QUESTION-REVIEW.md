@@ -1,20 +1,38 @@
-# Question library review and extension
+# CodeTA question-library review
 
-The initial Free Edition bank contains **99 distinct template prompts**, with unique stable IDs, one reference explanation, three distinct MC distractors, a construct category, difficulty, style preference, and an optional predefined follow-up. The author reviewed the language rules and avoided arbitrary submitted-program output prediction. Automated tests verify structure/uniqueness, source guards, evidence, answer-key placement, and selection; they do not prove every natural-language explanation correct.
+The 155-template library contains the original 99 audited entries and 56 new entries. This is an engineering/content review, not an external certification or instructor endorsement. No current official NTHU syllabus is claimed.
 
-The target is introductory C++11. A primary language reference for maintenance is the [public WG21 N3337 working draft](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3337.pdf), especially expressions, statements, declarations, functions, and library strings/iostreams. The bundled syntax grammar supports more syntax than C++11; parsing acceptance is not proof of C++11 conformance.
+## Audit and changes
 
-Review rules:
+All original prompts, explanations and three distractors were read for C++11 rules, unsupported assumptions, difficulty and duplication. Weak distractors around declarations, input types, branches, loops, arrays, recursion, arithmetic and transfers were rewritten toward common misconceptions. Explanations distinguish built-in numeric rules from unresolved overloads and general syntax from actual reachability. Source-specific prompts never assert programmer intent from a variable name.
 
-1. Require an actual parsed category and exact source evidence. Do not detect constructs by searching comments or strings for keywords.
-2. If a prompt assumes extra structure, add a selector guard. Current examples: `% 10` digit processing, a break whose nearest target is a switch, continue inside a switch nested in a loop, conventional versus range-based for, and primitive-variable questions versus indirect/unknown types.
-3. Keep the MC key determinable from the stated language rule and assumptions. Do not infer the exact purpose, runtime input, compiler success, or output of arbitrary student code.
-4. State built-in-operator assumptions where overload resolution could change semantics. Treat unknown division types and self-call resolution conservatively.
-5. Explain invalid arithmetic, signed overflow, and lifetime/bounds hazards without inventing a definite output for undefined behavior.
-6. Keep written responses ungraded. References are checklists for the student; the tool does not judge prose meaning, English grammar, or Traditional Chinese phrasing.
-7. Add a unique ID/prompt and three clearly incorrect alternatives. Test the new guard on both positive source and a near-miss source that must not select it.
-8. Maintain deterministic seed behavior and category balance. Prefer fewer source-supported questions over padding to a requested count.
+Notable corrected items: accumulator questions require an initializer and a later matching += with unambiguous local-name evidence; primitive-copy questions require direct primitive evidence; reference and value parameter rules are guarded separately; conventional-for rules exclude range loops and omitted-condition questions; decimal-digit rules require an actual divisor 10; switch-break/continue-while rules require the correct syntactic target. The former unsupported array-to-pointer and dangling-reference questions were replaced with array-bound and block-lifetime questions. Generic optional changes are explicitly labeled hypothetical. Function name lookup wording avoids an absolute “every declaration must occur earlier” claim for all contexts.
 
-Fixed follow-up arithmetic examples such as `123 % 10 == 3` and `7 / 2 == 3` explicitly specify valid built-in positive int operands. They are not generated output traces and do not execute user code.
+All five difficulty levels have real content. Selection prefers the chosen level, then related foundation content, rotates concepts, and deduplicates related objective families. Simple programs are allowed smaller pools. Explicit mode/topic filters never pad the pool with unrelated constructs.
 
-Known boundaries: simplified symbol evidence, no preprocessing/type-checking, no exhaustive call graph, no indirect/mutual recursion analysis, and no guarantee that a student’s code is semantically valid. Reference explanations and imported practice records remain reviewable study material, not official grades.
+## Source and rule boundaries
+
+The analyzer attaches structured tags, exact expressions/conditions and line evidence from actual AST nodes. Selection never examines a prompt’s English wording to decide if it is supported. It does not preprocess macros, compile, execute, resolve all types, prove a base case, infer algorithm purpose or prove complexity.
+
+Language-rule questions explicitly state their built-in type assumptions. Source-grounded correctness/termination prompts ask students to supply evidence, not claim the parser proved an invariant. What-if prompts state the changed condition or snippet. Code Tracing exclusively selects fixed, reviewed examples. MC options have one intended correct rule; keys and explanations remain inspectable locally.
+
+## Verified small traces
+
+| Fixed example                         | Derivation                           |
+| ------------------------------------- | ------------------------------------ |
+| sum of i for i=0,1,2                  | 0+1+2 = 3                            |
+| n=23, repeated n/=10 while n>0        | 23 → 2 → 0; two passes               |
+| count=0; do ++count while(false)      | one body execution; count=1          |
+| -23 % 10                              | truncating quotient -2, remainder -3 |
+| double x=7/2                          | int quotient 3, converted to 3.0     |
+| sum array {2,4,6} using i<3           | accesses 0,1,2; total 12             |
+| f(0)=1; f(n)=n*f(n-1), evaluated at 3 | 3*2*1*1 = 6                          |
+| i<4 with j<i                          | 0+1+2+3 = 6 visits                   |
+
+These exact small values fit even the minimum required C++11 int range. They are prebuilt examples; no result is transferred to an arbitrary submitted program. Demo factorial input is bounded to 0–7 for portability. User code can still be semantically invalid despite a successful syntax parse.
+
+## References and maintenance
+
+Primary language reference: the public [WG21 N3337 C++ working draft](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3337.pdf), especially expressions, statements, declarations, scope, storage duration and conversions. N3337 is a post-C++11 working draft, not a claim that this parser performs full conformance checking.
+
+For each new entry: identify the supported source kind/tags, state input/type assumptions, check the rule against the C++11 baseline, write one key and three false alternatives, provide a beginner explanation, mark its grounding and format, avoid a duplicate objective family, and test the guard against negative examples. Keep semantic output prediction disabled. Never add content simply to increase the count.

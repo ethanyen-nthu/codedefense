@@ -1,15 +1,5 @@
 'use client';
-import {
-  ArrowUpRight,
-  ArrowRight,
-  Code2,
-  MessageSquare,
-  ShieldCheck,
-  Terminal,
-  Check,
-  Braces,
-  CornerDownRight,
-} from 'lucide-react';
+import { ArrowRight, Code2, MessageSquare, ChartNoAxesCombined, ShieldCheck } from 'lucide-react';
 export function Home({
   onStart,
   onDemo,
@@ -20,190 +10,102 @@ export function Home({
   onHow: () => void;
 }) {
   return (
-    <div className="home">
-      <div className="hero-grid">
-        <section className="hero-copy">
-          <div className="hero-pill">
-            <span className="live-dot" />
-            YOUR NEXT LAB DEMO STARTS HERE
-          </div>
+    <div className="home content">
+      <section className="hero-grid">
+        <div className="hero-copy">
+          <p className="eyebrow">YOUR CODE. YOUR REASONING.</p>
           <h1>
-            Know your code.
+            Understand your code.
             <br />
-            <span>Defend your logic.</span>
+            <span>Ace your TA demo.</span>
           </h1>
           <p className="hero-description">
-            You wrote the program. Now make the reasoning yours. Rehearse a C++ oral exam with local
-            syntax analysis and reviewed questions about <em>your actual code.</em>
+            Practice explaining your C++ programs with code-specific questions, realistic TA
+            challenges, and instant learning feedback.
           </p>
           <div className="actions">
-            <button className="btn primary large" onClick={onStart}>
-              Start Practicing
-              <ArrowUpRight size={19} />
+            <button className="btn primary" onClick={onStart}>
+              Start Practicing <ArrowRight size={17} />
             </button>
-            <button className="btn secondary large" onClick={onDemo}>
-              <Terminal size={18} />
-              Try Example
+            <button className="btn secondary" onClick={onDemo}>
+              Try an Example
             </button>
           </div>
-          <div className="hero-assurances">
+          <p className="small muted">C++11 · No account · No API keys · Works locally</p>
+        </div>
+        <section className="hero-preview" aria-label="Verified example interview preview">
+          <div className="editor-toolbar">
             <span>
-              <Check size={14} />
-              No account needed
+              <Code2 size={16} />
+              digit_sum.cpp
             </span>
-            <span>
-              <Check size={14} />
-              No installation
+            <span className="badge">Example preview</span>
+          </div>
+          <pre className="preview-code">
+            <span className="muted">01</span> int sum = 0;{'\n'}
+            <span className="muted">02</span> while (number &gt; 0) {'{'}
+            {'\n'}
+            <span className="preview-highlight">
+              <span className="muted">03</span> sum += number % 10;
             </span>
-            <span>
-              <Check size={14} />
-              Write in English / 繁體中文
-            </span>
-          </div>
-          <div className="student-note">
-            <span className="mini-logo">
-              <Braces size={19} />
-            </span>
-            <div>
-              Built for the moment after “show me your code.”
-              <br />
-              <span className="muted">For intro C++ students. Independent of NTHU.</span>
-            </div>
-          </div>
-        </section>
-        <section className="hero-preview" aria-label="Predefined demo interview preview">
-          <div className="preview-top">
-            <div className="window-dots">
-              <i />
-              <i />
-              <i />
-            </div>
-            <span>digit_sum.cpp</span>
-            <span className="badge">EXAMPLE PREVIEW</span>
-          </div>
-          <div className="preview-code">
-            <div className="preview-line">
-              <span>05</span>
-              <code>
-                <b>int</b> number;
-              </code>
-            </div>
-            <div className="preview-line">
-              <span>06</span>
-              <code>cin &gt;&gt; number;</code>
-            </div>
-            <div className="preview-line">
-              <span>07</span>
-              <code>
-                <b>int</b> temp = number;
-              </code>
-            </div>
-            <div className="preview-line">
-              <span>08</span>
-              <code>
-                <b>int</b> sum = <i>0</i>;
-              </code>
-            </div>
-            <div className="preview-line">
-              <span>09</span>
-              <code>
-                <b>while</b> (temp &gt; <i>0</i>) {'{'}
-              </code>
-            </div>
-            <div className="preview-line highlighted">
-              <span>10</span>
-              <code>
-                {' '}
-                sum += temp % <i>10</i>;
-              </code>
-              <span className="line-focus">← let’s talk about this</span>
-            </div>
-            <div className="preview-line">
-              <span>11</span>
-              <code>
-                {' '}
-                temp /= <i>10</i>;
-              </code>
-            </div>
-            <div className="preview-line">
-              <span>12</span>
-              <code>{'}'}</code>
-            </div>
-          </div>
+            {'\n'}
+            <span className="muted">04</span> number /= 10;{'\n'}
+            <span className="muted">05</span> {'}'}
+          </pre>
           <div className="preview-interview">
-            <div className="row">
-              <span className="ta-avatar">TA</span>
-              <div>
-                <b>Your practice TA</b>
-                <p className="small muted">QUESTION 01 · INTEGER OPERATIONS</p>
-              </div>
-              <span className="pulse-label">Your turn</span>
+            <div className="row between">
+              <span className="eyebrow">TA QUESTION · LINE 3</span>
+              <span className="badge">Your source</span>
             </div>
-            <h3>
-              Why does <code>temp % 10</code> give you the last digit?
-            </h3>
-            <p className="muted">Walk me through your reasoning.</p>
-            <div className="preview-response">
-              <CornerDownRight size={16} />
-              <span>Because the remainder after division by 10...</span>
-              <span className="cursor" />
-            </div>
-            <div className="preview-footer">
-              <span>
-                <span className="live-dot" />
-                One question at a time
-              </span>
-              <span>
-                Source-aware practice
-                <ArrowRight size={13} />
-              </span>
-            </div>
+            <h2>
+              For a nonnegative integer, why does <code>number % 10</code> isolate the last digit?
+            </h2>
+            <p className="muted">
+              Explain your reasoning, then compare it with a reviewed reference.
+            </p>
+            <button className="text-button" onClick={onDemo}>
+              Practice with a real example <ArrowRight size={15} />
+            </button>
           </div>
         </section>
-      </div>
-      <div className="home-divider">
-        <span>LESS MEMORIZING. MORE UNDERSTANDING.</span>
+      </section>
+      <div className="section-heading">
+        <h2>A better way to prepare</h2>
         <button className="text-button" onClick={onHow}>
-          How it works
-          <ArrowRight size={15} />
+          How it works <ArrowRight size={15} />
         </button>
       </div>
-      <div className="feature-grid">
+      <section className="feature-grid">
         {[
           {
-            n: '01',
             Icon: Code2,
-            title: 'Bring your own code',
-            text: 'Paste or upload C++. Add your lab requirements for a more relevant interview.',
+            title: 'Paste your C++ code.',
+            text: 'Use your own program or a built-in example. Syntax analysis stays in your browser.',
           },
           {
-            n: '02',
             Icon: MessageSquare,
-            title: 'Think out loud',
-            text: 'Answer code-specific questions, compare reviewed explanations, and practice one optional follow-up.',
+            title: 'Practice real TA-style questions.',
+            text: 'Choose from five levels. Explain decisions, check boundaries, and try focused follow-ups.',
           },
           {
-            n: '03',
-            Icon: ShieldCheck,
-            title: 'Leave with a plan',
-            text: 'Review explanations, separate MC results and self-assessments, and the concepts to focus on next.',
+            Icon: ChartNoAxesCombined,
+            title: 'Review your weak areas.',
+            text: 'Compare references and keep MC results separate from your own understanding.',
           },
-        ].map(({ n, Icon, title, text }) => (
-          <article className="feature" key={n}>
-            <div className="row between">
-              <Icon size={23} />
-              <span>{n}</span>
-            </div>
-            <h2>{title}</h2>
+        ].map(({ Icon, title, text }, i) => (
+          <article className="feature" key={title}>
+            <span className="step-number">0{i + 1}</span>
+            <Icon size={21} />
+            <h3>{title}</h3>
             <p>{text}</p>
           </article>
         ))}
-      </div>
+      </section>
       <div className="privacy-strip">
-        <ShieldCheck size={17} />
+        <ShieldCheck size={18} />
         <p>
-          Source and answers stay on your device. No accounts, keys, or paid services. History is
-          stored in your browser. Code is never executed.
+          No code uploads to a server. No execution of arbitrary C++. Saved programs, reports, and
+          offline assets stay on your device.
         </p>
       </div>
     </div>

@@ -43,7 +43,33 @@ export const kinds = [
 ] as const;
 export type Kind = (typeof kinds)[number];
 export type Evidence = z.infer<typeof evidenceSchema>;
-export type Construct = { kind: Kind; name: string; detail: string; evidence: Evidence };
+export const featureSchema = z
+  .object({
+    expression: z.string().default(''),
+    condition: z.string().default(''),
+    left: z.string().default(''),
+    right: z.string().default(''),
+    operator: z.string().default(''),
+    valueType: z.string().default(''),
+    tags: z.array(z.string()).default([]),
+  })
+  .default({
+    expression: '',
+    condition: '',
+    left: '',
+    right: '',
+    operator: '',
+    valueType: '',
+    tags: [],
+  });
+export type Features = z.infer<typeof featureSchema>;
+export type Construct = {
+  kind: Kind;
+  name: string;
+  detail: string;
+  evidence: Evidence;
+  features?: Features;
+};
 export type Diagnostic = { line: number; column: number; message: string };
 export type Analysis = {
   constructs: Construct[];
@@ -66,8 +92,16 @@ export const emptyContext: z.infer<typeof contextSchema> = {
   restrictions: '',
   standard: 'C++11',
 };
+export const difficulties = [
+  'Fundamentals',
+  'Beginner',
+  'Normal TA',
+  'Strict TA',
+  'Challenge',
+] as const;
+export type Difficulty = (typeof difficulties)[number];
 export const configSchema = z.object({
-  difficulty: z.enum(['Beginner', 'Normal TA', 'Strict TA']).default('Normal TA'),
+  difficulty: z.enum(difficulties).default('Normal TA'),
   count: z.union([z.literal(5), z.literal(10), z.literal(15)]).default(10),
   mode: z
     .enum([
@@ -75,9 +109,15 @@ export const configSchema = z.object({
       'Explain My Code',
       'Debugging Challenge',
       'Quick Multiple Choice',
+      'What Happens If?',
+      'Code Tracing',
+      'TA Demo Mode',
     ])
     .default('Standard TA Interview'),
   seed: z.string().max(80).default(''),
+  adaptive: z.boolean().default(false),
+  preset: z.boolean().default(false),
+  excluded: z.array(z.enum(kinds)).default([]),
 });
 export type InterviewConfig = z.infer<typeof configSchema>;
 export type AssignmentContext = z.infer<typeof contextSchema>;
@@ -92,6 +132,21 @@ export const questionSchema = z.object({
   explanation: z.string(),
   choices: z.array(z.string()).length(4),
   correctIndex: z.number().int().min(0).max(3),
+  level: z.number().int().min(1).max(5).default(3),
+  format: z
+    .enum([
+      'Explain the Code',
+      'Multiple Choice',
+      'What Happens If?',
+      'Find the Problem',
+      'Code Tracing',
+    ])
+    .default('Explain the Code'),
+  grounding: z
+    .enum(['Language rule', 'Your source', 'Hypothetical change', 'Verified example'])
+    .default('Language rule'),
+  simple: z.string().default(''),
+  choiceExplanations: z.array(z.string()).length(4).optional(),
   followUp: z
     .object({ text: z.string(), explanation: z.string(), expected: z.array(z.string()) })
     .nullable(),
@@ -106,11 +161,14 @@ export const recordSchema = z.object({
   correct: z.boolean().nullable(),
   assessment: assessmentSchema.nullable(),
   skipped: z.boolean(),
+  hintsUsed: z.boolean().default(false),
+  difficulty: z.enum(difficulties).default('Normal TA'),
   followUp: z
     .object({
       answer: z.string().max(4000),
       assessment: assessmentSchema.nullable(),
       skipped: z.boolean(),
+      hintsUsed: z.boolean().default(false),
     })
     .nullable(),
 });
@@ -128,6 +186,7 @@ export const sessionSchema = z.object({
           name: z.string(),
           detail: z.string(),
           evidence: evidenceSchema,
+          features: featureSchema.optional(),
         }),
       )
       .max(1200),
@@ -145,6 +204,16 @@ export const sessionSchema = z.object({
   draft: z.string().max(4000),
   draftChoice: z.number().int().min(0).max(3).nullable(),
   hint: z.boolean(),
+  difficultyChanges: z
+    .array(
+      z.object({
+        after: z.number().int().min(0).max(15),
+        from: z.enum(difficulties),
+        to: z.enum(difficulties),
+        reason: z.enum(['chosen', 'adaptive']),
+      }),
+    )
+    .default([]),
 });
 export type PracticeSession = z.infer<typeof sessionSchema>;
 export const codeSchema = z

@@ -1,13 +1,21 @@
 import type { Kind } from './schemas';
+import { additions } from './question-additions';
 export type Template = {
   id: string;
   kind: Kind;
-  level: 1 | 2 | 3;
+  level: 1 | 2 | 3 | 4 | 5;
   style: 'explain' | 'debug' | 'standard';
   prompt: string;
   reference: string;
   wrong: [string, string, string];
   follow?: [string, string];
+  requires?: string[];
+  grounding?: 'Language rule' | 'Your source' | 'Hypothetical change' | 'Verified example';
+  format?: 'Explain the Code' | 'What Happens If?' | 'Find the Problem' | 'Code Tracing';
+  simple?: string;
+  points?: string[];
+  wrongReasons?: [string, string, string];
+  family?: string;
 };
 // Each entry asks a distinct C++11 rule. Correct answers do not depend on executing student code.
 // Source-specific substitutions only identify a parsed construct and its original line.
@@ -1046,15 +1054,181 @@ const followups: Partial<Record<Kind, [string, string]>> = {
     'An ordinary primitive value copy is a separate object. References and pointers are different mechanisms and need their actual declarations inspected.',
   ],
 };
-export const QUESTION_BANK: Template[] = rows.map(
-  ([kind, level, style, prompt, reference, ...wrong], i) => ({
-    id: `cpp11-${String(i + 1).padStart(3, '0')}`,
-    kind,
-    level,
-    style,
-    prompt,
-    reference,
-    wrong: wrong as [string, string, string],
-    follow: followups[kind],
-  }),
-);
+const guards: Record<number, string[]> = {
+  2: ['primitive-variable'],
+  3: ['primitive-variable'],
+  6: ['accumulator'],
+  7: ['primitive-initializer'],
+  40: ['conventional-for'],
+  41: ['conventional-for', 'condition'],
+  42: ['conventional-for'],
+  43: ['conventional-for'],
+  61: ['value-parameter'],
+  62: ['reference-parameter'],
+  71: ['compound-assignment'],
+  77: ['mod10'],
+  92: ['break-switch'],
+  95: ['continue-while'],
+  96: ['switch-loop'],
+};
+const families: Record<number, string> = {
+  33: 'else-if:order',
+  35: 'case:fallthrough',
+  43: 'for:boundary',
+  54: 'array:index',
+  61: 'parameter:value-copy',
+  68: 'recursion:call-state',
+  77: 'modulo:decimal',
+  78: 'modulo:negative',
+  92: 'break:remove',
+  95: 'continue:progress',
+};
+const corrections: Record<number, Partial<Template>> = {
+  1:{wrong:['It both declares the object and guarantees zero initialization in every scope.','It always creates a reference to an existing object.','It determines the value that the object must keep for the entire program.']},
+  8:{wrong:['All whole numbers, with no upper or lower limit.','All decimal fractions exactly, provided they are small.','Exactly the same set of values as bool.']},
+  9:{wrong:['Yes; the C++11 language fixes sizeof(int) to four bytes on every target.','No; its size grows when a larger value is assigned.','Yes; all integer types have the same width as int.']},
+  27:{wrong:['When the condition is false, since if skips true conditions.','Once whenever control reaches the if, regardless of its condition.','Whenever any earlier if in the function was true.']},
+  32:{wrong:['Every branch with a true condition executes.','All conditions are tested, then the last true body executes.','A false first condition skips every later alternative.']},
+  40:{wrong:['It is repeated before every condition test.','It happens after the first condition test succeeds.','It happens after the first body execution.']},
+  41:{wrong:['Only after each body execution, so the body always runs once.','Once before the loop begins; later iterations do not test it.','Immediately after initialization and then only when continue is used.']},
+  44:{wrong:['Its condition must become true; a true condition exits while.','Reaching a fixed number of iterations always ends while automatically.','Only a break statement can stop a while loop; its condition cannot.']},
+  45:{wrong:['No; while always executes its body before testing.','No; an initialized control variable guarantees one iteration.','Only when the while condition is omitted entirely.']},
+  48:{wrong:['Zero times if the initial condition would be false.','It first tests the condition and runs the body only if true.','At least twice, because the do and while each run the body.']},
+  54:{wrong:['One through N, because N elements require N as the final index.','Zero through N, including an extra element at the bound.','Any nonnegative index; an out-of-range write extends a built-in array.']},
+  63:{wrong:['It only leaves the nearest brace-delimited block.','It leaves the nearest loop but continues the current function.','It displays the expression and then continues at the next statement.']},
+  66:{wrong:['The recursive call with the largest argument is always the base case.','Every return statement is a base case, even when its expression makes another recursive call.','The first invocation is the base case regardless of its path.']},
+  70:{wrong:['The destination type always determines the type of every intermediate operation.','The arithmetic operator guarantees there are no numeric conversions.','Using integer literals makes all intermediate arithmetic unlimited in range.']},
+  73:{wrong:['It assigns the right value to the left object.','It returns the larger operand without a boolean conversion.','It returns a three-way comparison value: negative, zero, or positive.']},
+  76:{wrong:['It computes the integral quotient, discarding the remainder.','It computes a percentage of the left operand.','It computes a floating-point fractional part for any numeric types.']},
+  85:{wrong:['At least one operand is true, even if the other is false.','Both operands are false.','The operands have equal truth values, including when both are false.']},
+  88:{wrong:['Whenever at least one condition is false.','Whenever the two conditions have different truth values.','Only when both conditions are true.']},
+  91:{wrong:['It exits every enclosing loop at once.','It skips only the remaining current iteration, then always begins another.','It returns from the enclosing function.']},
+  94:{wrong:['It exits the nearest loop permanently.','It restarts a for body without performing its header update or condition test.','It exits the enclosing function and returns its last value.']},
+  2: {
+    prompt:
+      'Language rule: for an automatic primitive object with no initializer, why must you establish a value before reading it? Compare with {name}.',
+  },
+  3: {
+    prompt:
+      'Language rule: if an ordinary primitive value like {name} is copied into another object, does changing the copy change the original?',
+  },
+  6: {
+    prompt:
+      'The source initializes {name} and later uses += with that name. Why must its starting value be established before accumulating?',
+  },
+  19: {
+    prompt:
+      'Hypothetical: if formatted >> extraction is used with a std::string like the one shown, how is whitespace treated?',
+    grounding: 'Hypothetical change',
+  },
+  25: {
+    prompt:
+      'Language rule: if you choose std::endl rather than a newline in an output expression, what extra operation does it request?',
+  },
+  26: {
+    prompt: 'Language rule: would chaining several cout insertions add separators automatically?',
+  },
+  28: {
+    prompt:
+      'Hypothetical: if braces were removed from an if body containing several statements, what would the if control?',
+    grounding: 'Hypothetical change',
+  },
+  36: {
+    prompt:
+      'Hypothetical: if no case matches and there is no default, where does switch control continue?',
+    grounding: 'Hypothetical change',
+  },
+  42: {
+    prompt:
+      'Hypothetical: if continue is reached in this conventional for loop, what part of the loop runs next?',
+    grounding: 'Hypothetical change',
+  },
+  47: {
+    prompt: 'Hypothetical: if continue is reached in this while body, what is evaluated next?',
+    grounding: 'Hypothetical change',
+  },
+  50: {
+    prompt: 'Hypothetical: if continue is reached in this do-while body, what is tested next?',
+    grounding: 'Hypothetical change',
+  },
+  52: { grounding: 'Hypothetical change', level: 5 },
+  53: {
+    prompt:
+      'Hypothetical: if an inner loop contains break, does that break automatically exit the outer loop too?',
+    grounding: 'Hypothetical change',
+  },
+  56: {
+    prompt: 'For the array {name} at line {line}, how would you establish a valid traversal bound?',
+    reference:
+      'Identify the actual element count and ensure every subscript used for an element lies from zero through count minus one. An array declaration alone does not prove every access is safe.',
+    wrong: [
+      'Use the element count itself as the final valid element index.',
+      'Assume every negative subscript wraps to the end.',
+      'Assume built-in arrays grow when indexed.',
+    ],
+  },
+  58: {
+    prompt:
+      'In ordinary unqualified calls, why is an applicable function declaration needed at the point of use? Relate this rule to {name}.',
+    reference:
+      'Name lookup and overload resolution need an applicable declaration; a prior definition also serves as a declaration. This parser does not perform full lookup or semantic checking.',
+  },
+  59: {
+    prompt:
+      'Language rule: does an ordinary automatic local object normally survive after its scope is exited during a function call?',
+  },
+  62: {
+    prompt:
+      'The parameter {name} has reference-declarator syntax. How does an int& reference parameter differ from passing an int by value?',
+  },
+  71: {
+    prompt:
+      'Explain the compound assignment {expression} at line {line}. What happens to its left operand?',
+  },
+  75: {
+    prompt:
+      'Hypothetical: why would a < b < c be a faulty way to express a mathematical range test with built-in numeric operands?',
+    grounding: 'Hypothetical change',
+  },
+  81: {
+    prompt:
+      'Hypothetical: why would storing this integral division result in double fail to recover a discarded fraction?',
+    grounding: 'Hypothetical change',
+  },
+  95: {
+    prompt:
+      'The continue is nested in a while loop. Which updates could it bypass, and why does that matter for progress?',
+  },
+  99: {
+    prompt:
+      'When execution enters a block again, must an ordinary automatic object from its previous completed execution still exist?',
+    reference:
+      'No. Ordinary automatic objects have lifetimes tied to their scope execution. A new execution can create new objects; static storage follows different rules.',
+    wrong: [
+      'Yes, every block object lives until the process exits.',
+      'Yes, block braces make every object static.',
+      'Yes, keeping the same variable name guarantees the same lifetime.',
+    ],
+  },
+};
+const reviewed = rows.map(([kind, level, style, prompt, reference, ...wrong], i) => ({
+  id: `cpp11-${String(i + 1).padStart(3, '0')}`,
+  kind,
+  level: (level === 1
+    ? ['recursion', 'nested-loop', 'parameter'].includes(kind)
+      ? 2
+      : 1
+    : level === 2
+      ? 3
+      : 4) as Template['level'],
+  style,
+  prompt,
+  reference,
+  wrong: wrong as [string, string, string],
+  follow: followups[kind],
+  requires: guards[i + 1],
+  family: families[i + 1],
+  grounding: 'Language rule' as const,
+  ...corrections[i + 1],
+}));
+export const QUESTION_BANK: Template[] = [...reviewed, ...additions];

@@ -3,9 +3,9 @@ export function Privacy() {
     <section className="panel">
       <h2>Your source stays on your device</h2>
       <p>
-        CodeDefense Free parses C++ in your browser with bundled Tree-sitter WebAssembly. Source
-        code, written answers, and assessment records are not uploaded to an AI service, database,
-        or application backend. No API key or account is required.
+        CodeTA parses C++ in your browser with bundled Tree-sitter WebAssembly. Source code, written
+        answers, and assessment records are not uploaded to an AI service, database, or application
+        backend. No API key or account is required.
       </p>
       <p>
         Loading the static website and its bundled assets sends ordinary web request metadata to the
@@ -21,8 +21,8 @@ export function Privacy() {
       </p>
       <p>
         Delete one session or Clear All History from History. Earlier paid-version history uses a
-        separate storage key and is never silently converted into Free Edition scores. History
-        includes separate controls to export or delete those legacy records.
+        separate storage key and is never silently converted into CodeTA scores. History includes
+        separate controls to export or delete those legacy records.
       </p>
       <h2>Offline use and limitations</h2>
       <p>
@@ -34,7 +34,8 @@ export function Privacy() {
         This is a syntax and practice tool, not a C++ compiler or execution environment. Headers,
         overload resolution, macros, and every semantic language rule are not verified. Written
         answers are self-assessed; only multiple-choice answers use automatic answer keys. Scores
-        are informal study records. CodeDefense is not affiliated with NTHU.
+        are informal study records. Independent student project. Not officially affiliated with
+        National Tsing Hua University.
       </p>
     </section>
   );

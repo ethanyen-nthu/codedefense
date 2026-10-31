@@ -11,6 +11,7 @@ async function begin(page: Page, mc = false, count = 5) {
   await expect(page.getByRole('heading', { name: 'Code Understanding Report' })).toBeVisible();
   await page.getByLabel('Main questions').selectOption(String(count));
   if (mc) await page.getByLabel('Interview mode').selectOption('Quick Multiple Choice');
+  await page.getByText('Coursework filters & repeatable order', { exact: true }).click();
   await page.getByLabel('Question-order seed').fill('browser-check');
   await page.getByRole('button', { name: 'Begin Interview' }).click();
 }
@@ -62,7 +63,7 @@ test('ten written answers, self-assessment, follow-up and report stay separate f
     ).toBeDisabled();
     await page
       .getByRole('button', {
-        name: i === 0 ? 'I understood partially / 部分理解' : 'I understood completely / 完全理解',
+        name: i === 0 ? 'Partially understood / 部分理解' : 'Understood completely / 完全理解',
         exact: true,
       })
       .click();
@@ -95,7 +96,7 @@ test('multiple choice uses its actual key and one optional follow-up', async ({ 
       await page.getByLabel('Your answer').fill('A follow-up explanation.');
       await page.getByRole('button', { name: 'Compare My Answer' }).click();
       await page
-        .getByRole('button', { name: 'I did not understand / 尚未理解', exact: true })
+        .getByRole('button', { name: 'Need more practice / 需要練習', exact: true })
         .click();
       await expect(page.getByRole('button', { name: 'Practice one follow-up' })).toHaveCount(0);
     }
@@ -137,9 +138,7 @@ test('history export, import, individual deletion and clear-all', async ({ page,
   expect(file).not.toBeNull();
   page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Clear All History', exact: true }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Your first practice starts here.' }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'No sessions yet.' })).toBeVisible();
   await page.getByLabel('Import history file').setInputFiles(file!);
   await expect(page.locator('.history-card')).toHaveCount(1);
   await page.getByRole('button', { name: 'Resume', exact: true }).click();
@@ -188,7 +187,7 @@ test('core practice works offline after the self-hosted assets are cached', asyn
   await context.setOffline(true);
   await page.reload();
   await page.getByRole('button', { name: 'Start Practicing', exact: true }).click();
-  await page.getByRole('button', { name: 'Example', exact: true }).click();
+  await page.getByRole('button', { name: 'Armstrong number', exact: true }).click();
   await page.getByRole('button', { name: 'Analyze Locally' }).click();
   await expect(page.getByRole('heading', { name: 'Code Understanding Report' })).toBeVisible();
   await page.getByRole('button', { name: 'Begin Interview' }).click();
