@@ -1,87 +1,76 @@
-# CodeDefense Free Edition
+# CodeTA 2.0
 
-**Know your code. Defend your logic.**
+**Understand your code. Ace your TA demo.**
 
-Rehearse a C++ lab demonstration using **your actual source**, a real browser-local C++ syntax parser, and 99 reviewed question templates. No accounts, API keys, AI provider, application server, database, subscriptions, or usage credits are needed. Students open an ordinary HTTPS website.
+Practice explaining your C++ programs with code-specific questions, realistic TA challenges, and instant learning feedback. Made by **Ethan Yen**, for NTHU programming classes. Independent student project. Not officially affiliated with National Tsing Hua University.
 
-This migrates the existing CodeDefense repository rather than replacing its interface. The CodeMirror editor, dark design, mobile source tabs, source highlights, uploads, reports, and local history are retained. The prior paid-AI implementation is preserved in Git at tag **`codedefense-paid-ai-v1`** (commit `cda048204a46be888e46474be3f80f76908c74e7`). Migration branch: `feature/codedefense-free`.
+CodeTA evolves the existing CodeDefense application. It retains CodeMirror, the local Tree-sitter C++ WASM parser, uploads, source highlighting, reports, browser-local history, and offline assets. No AI service, API key, account, database, runtime server, Worker, or Pages Function is needed. Submitted code is never executed or uploaded.
 
-![CodeDefense Free homepage](docs/home-desktop.png)
+![CodeTA light homepage](docs/home-desktop.png)
 
-[Editor](docs/editor-desktop.png) · [Interview](docs/interview-desktop.png) · [Mobile](docs/interview-mobile.png) · [Report](docs/report-desktop.png)
+[Dark theme](docs/home-dark.png) · [Interview](docs/interview-desktop.png) · [Mobile](docs/interview-mobile.png) · [Report](docs/report-desktop.png)
 
-## What works
+## Practice
 
-- Paste C++ or upload UTF-8 `.cpp` / `.txt`; up to 30,000 characters, 1,500 lines, and 120,000 uploaded bytes.
-- Parse locally using **web-tree-sitter 0.25.10** and the compatible C++ WASM grammar supplied by **@vscode/tree-sitter-wasm 0.3.1**. WASM assets and license notices are bundled under `public/parser/`; no CDN or external parser endpoint is used.
-- Detect declarations/initialization, supported primitive types and strings, standard-stream-shaped input/output, branches, switch/cases, loops/nesting, arrays, functions/parameters/returns, direct self-call candidates, operators, logical AND/OR, break/continue, and block scope.
-- See exact source lines and syntax diagnostics. Fix syntax errors before starting an interview.
-- Choose Beginner / Normal TA / Strict TA, up to 5 / 10 / 15 main questions, and Standard / Explain My Code / Debugging Challenge / Quick Multiple Choice.
-- Use a new random question order or enter a repeatable seed. Distinct templates are selected only for detected constructs, with category balancing and mode preferences. A small program may support fewer questions; the UI reports the actual count instead of inventing irrelevant questions.
-- Answer one question at a time, request a hint, skip, optionally practice one supported follow-up, and review a report.
-- Resume on the same browser, including an unfinished written draft; delete individual sessions; clear history; export/import validated JSON; print or download a study report; retry weak questions.
-- After one complete successful online load, the application caches its own runtime assets and parser for offline core practice. Browser storage eviction/private mode can affect availability.
+1. Paste C++ or upload a UTF-8 `.cpp` / `.txt` file (30,000 characters, 1,500 lines, 120 KB).
+2. Review detected constructs and exact source lines. Fix syntax diagnostics before starting.
+3. Choose 5, 10, or 15 questions and a level: **Fundamentals**, **Beginner**, **Normal TA** (default), **Strict TA**, or **Challenge**. Each shows a description and example.
+4. Select Standard TA Interview, Explain My Code, Debugging Challenge, Quick Multiple Choice, What Happens If?, Code Tracing, or TA Demo Mode. Small programs or narrow filters may support fewer questions. Challenge includes related foundations when advanced source evidence is limited; the setup states that limitation.
+5. Answer before viewing the reference. Written answers use explicit self-assessment. MC answers use exact keys with an explanation for every choice. “Explain More Simply” opens prewritten beginner guidance. Up to one relevant follow-up is available per main question.
+6. Review MC accuracy separately from self-assessment, hints, skips, practiced concepts, weak concepts, and difficulty changes. Retry weak questions or use the dedicated **Review** screen.
 
-The main interface is English. Written answers can use any language, including Traditional Chinese, and the self-assessment controls include Traditional Chinese labels. A complete Traditional Chinese interface is not claimed.
+Light, Dark, and System themes cover the editor and every screen. The choice is saved locally and applied in the document head before paint. Native keyboard controls, a skip link, focus on new questions, mobile code/question tabs, reduced-motion support, and short transitions are included. Desktop source panels can be resized horizontally. Focus mode reduces interview distractions.
 
-## Honest assessment
+## Trustworthy deterministic practice
 
-**Quick Multiple Choice:** exact comparison with a reviewed template answer key. The report shows correct / recorded MC answers and a percentage; skipped MC questions count as incorrect. The keys are browser-local and inspectable—this is a practice tool, not a secure examination system.
+The audited bank has **155 distinct prompts**: the original 99 reviewed and corrected, plus 56 new questions. Structured AST evidence tags replace prompt-text matching. Guards distinguish actual positive integral loop conditions, `% 10`, integral division by 10, primitive copies, reference/value parameters, accumulator-shaped uses, conventional loops, and switch/loop transfer targets. Expression and condition substitutions come from parsed nodes. Related learning objectives are deduplicated, as well as template IDs.
 
-**Written modes:** submit an explanation, read the reference and expected-point checklist, then choose “I understood completely,” “I understood partially,” or “I did not understand.” No AI, keyword matcher, or semantic grader assigns correctness to your prose.
+Question labels distinguish **Language rule**, **Your source**, **Hypothetical change**, and **Verified example**. Fixed trace snippets state their own operands, definitions, and assumptions; they do not predict arbitrary submitted-program output. No C++ execution engine is included. See [question review](docs/QUESTION-REVIEW.md).
 
-Written self-assessments and optional follow-ups are kept **separate** from automatic MC results. There is no blended objective-looking score or AI readiness grade. Follow-ups do not alter the main MC score. Weak-topic retries include incorrect/skipped MC responses and incomplete written/follow-up understanding.
+Written modes never receive an objective semantic grade, keyword score, or AI readiness score. Students compare references/checklists and choose Understood completely, Partially understood, or Need more practice. These signals can guide practice but do not establish mastery. MC keys are local and inspectable: this is a study tool, not a secure examination system.
 
-The syllabus notes and restrictions fields are saved as personal context. They do not introduce constructs absent from the parsed source, and no model interprets them. This independent project is not affiliated with NTHU; reports are informal study records.
+### Difficulty and adaptation
 
-## Analysis boundaries
+You can change difficulty after a main answer. Previously recorded questions, keys, responses, and results stay unchanged; only unanswered questions regenerate. The report records the old/new level, position, and whether the change was chosen or adaptive.
 
-Tree-sitter is an established syntax parser, not a compiler. The application never compiles or executes arbitrary submitted C++.
+**Adaptive Practice is off by default.** If enabled, a weak response, skip, or hint lowers the next selected level by one. Three consecutive strong, hint-free responses raise it by one, within levels 1–5. Related weak concepts are prioritized. If the source cannot support replacements, the existing supported pool is kept. Without opt-in, the selected level never changes automatically; reports can suggest a harder level.
 
-- Source evidence is copied from original parsed lines. Comments, strings, and pasted “instructions” are data, not executable instructions to an AI.
-- Header inclusion, macro expansion, symbol/type checking, overload resolution, every C++11 semantic constraint, and runtime validity are not established.
-- Integer division is labeled only for conservatively resolved primitive integral declarations/parameters/literals. Pointer, aliased, shadowed, or unknown operands remain uncertain.
-- A direct unqualified self-call is reported as a **recursion candidate**, with checks against obvious name hiding and overload ambiguity. Indirect/mutual recursion and all call-resolution semantics are outside scope. The tool does not claim to have proved a valid base case or termination.
-- Conventional `for` templates are excluded for range-based loops. Switch-break and decimal-digit templates have additional source guards.
-- Occurrences are limited to the first 1,000 detected constructs and 400,000 stored evidence characters to bound large/minified reports; the analysis explicitly reports limits if reached.
-- No submitted-program output is invented. The only fixed arithmetic follow-up examples state their own valid built-in operands, such as `123 % 10` or `7 / 2`. These are reviewed language-rule examples, not execution of the submitted program.
+The optional **NTHU beginner C++11 preset** prioritizes input/output, conditions, loops, arrays, functions, recursion, and number processing. Explicit “not yet taught” checkboxes exclude related concepts. It is not a claim about the official current syllabus. Personal assignment notes are saved context, not interpreted filters.
 
-See [question-library review notes](docs/QUESTION-REVIEW.md) for maintenance and coverage rules.
+## Local data and migration
 
-## Install and develop
+- **Programs** stores up to 20 local programs. Save from the editor, open again, or delete individually.
+- **History** keeps up to 15 recent sessions, including unfinished drafts and progress. Resume, delete individually, clear history, print, download reports, and export/import JSON.
+- CodeTA exports use envelope `format: "codeta", version: 3`, including saved programs. Original CodeDefense Free v2 exports remain accepted. Session snapshots retain version 2 with additive, validated defaults; old source, answers, keys, assessments, and timestamps are preserved. New hint/difficulty metadata cannot reconstruct information the older app never recorded.
+- Existing Free Edition localStorage keys are intentionally retained for compatibility. Earlier paid-AI records remain separate. If an unrecognized original record cannot be displayed, its raw history is preserved in an exportable backup before new history overwrites that key.
+- Import validates all sessions/programs and source evidence before changes. Duplicate program/session IDs, oversized files, and forged evidence are rejected. Saved-program overflow fails with an explanation rather than silently dropping programs.
+- Theme uses `codeta-theme`; programs use `codeta-programs-v1`. Clearing practice history preserves saved programs. Browser storage quotas/private mode/eviction may affect persistence; exports contain source and answers, so store them privately.
 
-Only the maintainer needs development software. Students do not install anything.
+**The new hostname has separate storage.** On [the old website](https://codedefense-free.pages.dev/#history), choose **Export History**. On CodeTA, open **History → Import History** and choose that file. This does not delete the originals. No cross-origin storage transfer is automatic.
 
-1. Install [Node.js](https://nodejs.org/en/download) **24.22.1** (including npm) and Git. Reopen your terminal.
-2. Check both Node and npm, then install the pinned package manager:
+Offline core practice works after one complete online load and successful cache installation. The service worker bundles the parser and application assets, uses a build-specific cache, and removes only old app asset caches. Personal history is separate from asset caches. Loading the online site still sends ordinary HTTP metadata to Cloudflare; there is no configured analytics, external font, speech service, or remote processing dependency.
 
-   ```sh
-   node --version
-   npm --version
-   npm install --global pnpm@11.25.0
-   ```
+## Analysis limits
 
-3. Clone the repository and install:
+Tree-sitter syntax parsing is not compilation, preprocessing, type checking, overload resolution, or a proof of full C++11 conformance. Direct self-calls are recursion candidates, not proven base cases or termination. Indirect/mutual recursion is not resolved. Integral division uses narrow primitive-type evidence; unknown/shadowed/indirect types stay uncertain. Range-based for loops do not receive conventional-for rules.
 
-   ```sh
-   git clone https://github.com/ethanyen-nthu/codedefense.git
-   cd codedefense
-   pnpm install --frozen-lockfile
-   pnpm run dev
-   ```
+Constructs are capped at 1,000 and stored evidence at 400,000 characters, with an explicit limitation when reached. Unsupported semantics are disclosed rather than filled in with invented behavior. Tests cover six actual beginner examples: Armstrong, switch, factorial, digit sum, palindrome, and arrays/functions. Examples use bounded inputs to avoid relying on a particular 32-bit int range.
 
-4. Open [localhost:3000](http://localhost:3000). No `.env` file is required. Press Ctrl+C to stop.
+## Install and verify
 
-For a production-equivalent static preview:
+Only maintainers need Node and pnpm. Students open the static HTTPS site.
 
 ```sh
-pnpm run build
-pnpm run start
+node --version
+npm --version
+npm install --global pnpm@11.25.0
+git clone https://github.com/ethanyen-nthu/codedefense.git
+cd codedefense
+pnpm install --frozen-lockfile
+pnpm run dev
 ```
 
-The build creates **`out/`**. The local `start` command is a small file-only development/test preview server; **it is not deployed**. Upload `out/` to static hosting. Production requires no Node.js application server, Worker, Pages Function, cookie session, or runtime environment variable. `/privacy` is an exported static page; unknown routes return the static 404 page. View transitions in the practice workspace are browser-local.
-
-## Tests
+Use Node **24.22.1** (also pinned in `.node-version` / `.nvmrc`) and pnpm **11.25.0**. No `.env` is required. If npm is missing, repair the Node installation and reopen the terminal.
 
 ```sh
 pnpm run typecheck
@@ -92,89 +81,29 @@ pnpm exec playwright install chromium
 pnpm run test:e2e
 ```
 
-Unit tests use the **actual bundled WASM parser**, not a mocked concept detector. Browser tests run the exported `out/` files, with the production security-header policy. They cover Armstrong/switch/recursive examples, malformed source, source references, 10-question written practice, exact MC keys, assessment separation, follow-ups, uploads, history round-trips, refresh recovery, mobile/keyboard use, static routes, no non-GET/external processing requests, and offline parsing.
+The build exports **`out/`** and verifies that no API route, Function, or Worker artifact is present. `pnpm run start` serves those files for local testing; this preview Node process is never deployed. Stop other servers on port 3000 before Playwright. `pnpm run format` formats the source. Checks and their actual results are documented in [verification](docs/VERIFICATION.md).
 
-Close other servers on port 3000 before running Playwright. CI performs the same checks without any API credentials. `pnpm run format` formats the source. `pnpm run lint` is pinned to ESLint 9 because the installed React/accessibility plugins do not yet support ESLint 10; the lockfile pins compatible versions. TypeScript 6 is retained for the same lint-parser compatibility reason.
+## Cloudflare Pages Free deployment
 
-Executed delivery results and unverified platform boundaries are recorded in [docs/VERIFICATION.md](docs/VERIFICATION.md).
+Keep the existing GitHub repository. Use a **new Pages project named `codeta`**, if that exact subdomain is available. If it is unavailable, report that and choose an alternative explicitly; do not assume a successful URL. Use Pages, not the Workers app workflow.
 
-## Deploy to Cloudflare Pages Free
+1. Sign into [Cloudflare Dashboard](https://dash.cloudflare.com/); create/verify a Free account yourself if needed.
+2. Open **Compute → Workers & Pages → Create application → Continue to Pages → Import an existing Git repository**.
+3. Connect GitHub, review requested permissions, and select `ethanyen-nthu/codedefense`.
+4. Configure project name `codeta`, framework **Next.js (Static HTML Export)**, root blank, build **`pnpm run build`**, output **`out`**.
+5. Set build-only `NODE_VERSION=24.22.1` and `PNPM_VERSION=11.25.0`. Leave runtime secrets, bindings, Functions, and paid services unused. Cloudflare supports these tool-version overrides; see [build-image docs](https://developers.cloudflare.com/pages/configuration/build-image/).
+6. To preserve the old production site during release, deploy the fully tested `feature/codeta-v2` branch to the new project first. Verify the returned public site, then merge the passing PR and change the new project’s production branch to **`main`**. Keep the old project’s settings unchanged. Its existing main deployment may update after merge; the previous immutable deployment and Git tags remain available.
+7. Confirm the homepage, both themes, upload/parsing, five levels, a complete interview/report, refresh recovery, mobile layout, and static `/privacy` route. The removed `/api/practice` route must return 404. Code submission must not send source to any remote service.
+8. Future main pushes automatically rebuild and publish. Use reviewed PRs and passing CI. No custom domain purchase is required for `pages.dev`.
 
-Use the **Pages static export** workflow, not Workers, not `next-on-pages`, and not a Functions deployment. Cloudflare documents the [Next.js static HTML export preset](https://developers.cloudflare.com/pages/framework-guides/nextjs/deploy-a-static-nextjs-site/).
+See Cloudflare’s [static Next.js guide](https://developers.cloudflare.com/pages/framework-guides/nextjs/deploy-a-static-nextjs-site/) and [Free plan limits](https://developers.cloudflare.com/pages/platform/limits/). The app has no metered runtime dependency; future provider pricing or perpetual service availability cannot be guaranteed by a repository.
 
-1. Visit [Cloudflare Dashboard](https://dash.cloudflare.com/), create a free account if needed, and complete email/account verification yourself. You do not need to purchase a domain or select a paid plan.
-2. In **Workers & Pages**, select **Create application → Pages → Connect to Git / Import an existing Git repository**. Dashboard wording can vary; choose the Pages Git workflow.
-3. Connect your GitHub account and permit access to **`ethanyen-nthu/codedefense`**. You can restrict the integration to this repository. Review any authorization page before accepting it.
-4. Select the existing repository, then **Begin setup**. Name the Pages project (for example `codedefense-free`, if available).
-5. Configure:
+## Architecture and preserved releases
 
-   | Setting                     | Value                                          |
-   | --------------------------- | ---------------------------------------------- |
-   | Production branch           | `main` after the tested migration PR is merged |
-   | Framework preset            | **Next.js (Static HTML Export)**               |
-   | Root directory              | repository root / blank                        |
-   | Build command               | **`pnpm run build`**                           |
-   | Build output directory      | **`out`**                                      |
-   | Build system                | current v3 image                               |
-   | `NODE_VERSION` (build-only) | **`24.22.1`**                                  |
-   | `PNPM_VERSION` (build-only) | **`11.25.0`**                                  |
+`workspace.tsx` orchestrates local state/navigation. Focused components handle editor/setup, analysis, configuration, interviews/feedback, learning/history/programs, reports, branding, and themes. CodeMirror is lazy-loaded; parser WASM initializes on first analysis. Styles use one token system for surfaces, text, accents, spacing, typography, focus, and themes. No animation or state-management package was added.
 
-   The build command includes parser preparation and static/offline packaging; do not replace it with an adapter command. `.node-version` and `.nvmrc` also pin Node. Cloudflare supports version overrides for Node and pnpm; its v3 image does not infer these versions reliably from `engines` or lockfile version alone. See the [build-image documentation](https://developers.cloudflare.com/pages/configuration/build-image/).
+`analyzer.ts` produces syntax evidence; `question-bank.ts` and `question-additions.ts` hold reviewed content; `engine.ts` selects questions and transitions assessment state; `storage.ts` handles validated local persistence and migration. Tests use the actual WASM grammar.
 
-6. Leave all API keys, secrets, database bindings, and Functions settings **empty**. The only variables above choose build tools and are not runtime credentials.
-7. Save and deploy. Wait for a successful build, then open the **actual `pages.dev` URL Cloudflare returns**. No public URL is assumed until that response is verified.
-8. In a clean browser, paste the Armstrong program, inspect while/modulo/variable evidence, then try switch and recursion. Complete an interview, export/import history, refresh, and test phone-width source tabs. Confirm `/api/practice` is absent and code submission produces no network POST or external processing request.
-9. After a complete online load, test offline practice in browser developer tools. Browser caches/storage are best effort; save a history export as your backup.
-10. Future pushes to `main` automatically rebuild and publish through the connected Git integration. Use branches/PRs and passing CI before merging. Preview branches can use the same static configuration and need no secrets.
-
-The application has **no metered runtime dependency** and is usable on the Pages Free plan within that provider’s limits. A free `pages.dev` address avoids domain renewal fees. Cloudflare’s current Free plan has build quotas (documented as 500 builds/month); provider terms and future pricing are not a promise this repository can make. See [Pages limits](https://developers.cloudflare.com/pages/platform/limits/). No paid feature is needed for this app.
-
-### Optional direct upload
-
-You can also build locally and upload only `out/` using Cloudflare’s Pages Direct Upload workflow. Git-connected Pages is preferred for automatic updates. Do not upload `.next/`, source `.git/`, `node_modules/`, or the whole repository as the static output. A direct-upload project may have different Git-integration migration constraints; choose the Git workflow first if you want automatic builds.
-
-## Privacy, offline data, and portability
-
-Source, drafts, progress, MC results, written self-assessments, and saved reports remain browser-local. Loading the public site still sends ordinary HTTP metadata to its static hosting provider. There is no configured analytics, external font, speech service, AI endpoint, or remote storage dependency. Parser files are self-hosted. Offline assets are cached under a build-specific service-worker cache and old app caches are removed on activation; personal practice data is in localStorage, separate from that asset cache.
-
-History exports contain source and answers. Keep them somewhere you trust. Import validates format/version, session shape/progress, size, duplicate IDs, and source evidence before changing current history. Free history uses a new v2 key; old paid-AI history remains separate with explicit legacy export/deletion controls. Switching to a different domain/browser does not migrate localStorage automatically—export on the old origin and import on the new one.
-
-## Repository map
-
-```text
-src/app/                 Static Next.js pages and preserved dark styles
-src/components/          Reused editor/home/workspace/report, local privacy notice
-src/lib/analyzer.ts      Actual syntax-tree traversal and conservative type evidence
-src/lib/question-bank.ts 99 reviewed C++11 template entries and follow-ups
-src/lib/engine.ts        Seeded question selection and assessment state machine
-src/lib/schemas.ts       Runtime schemas and versioned study records
-src/lib/storage.ts       Local history, validation, import/export
-src/lib/source.ts        UTF-8 uploads, limits, normalization, exact evidence checks
-src/lib/examples.ts      Armstrong, switch, recursive factorial source programs
-public/parser/           Bundled WASM and upstream license/provenance files
-public/_headers          Static Cloudflare security headers
-scripts/                 Build preparation, static verification, offline cache, preview
-tests/                   Real-WASM unit tests and state/storage tests
-e2e/                     Desktop/mobile tests against exported static files
-out/                     Generated deployment output (Git-ignored)
-```
-
-## Troubleshooting
-
-| Problem                          | What to check                                                                                                                        |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `npm` is missing                 | Repair Node installation including npm and reopen the terminal.                                                                      |
-| Windows pnpm `EPERM`             | Use a permitted writable package store/terminal; do not disable security software.                                                   |
-| WASM 404 / parse cannot load     | Deploy all of `out/`, including `/parser/`; run the full build command. Open via HTTP(S), not `file://`.                             |
-| WASM blocked by CSP              | Keep the shipped static `_headers`, including `wasm-unsafe-eval` and same-origin fetch permissions.                                  |
-| Syntax diagnostics               | Fix delimiters/statements at and before the cited line; a syntax tree is not a semantic compiler check.                              |
-| Fewer than requested questions   | The source/difficulty supports a smaller reviewed pool; use a richer program or Normal/Strict TA. No irrelevant questions are added. |
-| Written answer has no score      | Intended: compare the reference and self-assess; switch to Quick Multiple Choice for automatic answer keys.                          |
-| Cloudflare picks the wrong tools | Set `NODE_VERSION=24.22.1` and `PNPM_VERSION=11.25.0`, then rebuild.                                                                 |
-| Build succeeds but site is empty | Output directory must be `out`, not `.next` or repository root.                                                                      |
-| Offline not ready                | First complete an online load, allow service workers/cache, then reload. Private browsing/storage eviction may remove caches.        |
-| History missing on `pages.dev`   | Storage is origin-specific. Export from the old origin and import into this one.                                                     |
-| Old UI persists                  | Reconnect, reload to install the newer asset cache, then reload once more if an old tab is still controlled by the previous worker.  |
-| Port 3000 busy in browser tests  | Stop the old preview before running Playwright; tests start their own static server.                                                 |
-
-To inspect the original implementation without changing or deleting it, use `git show codedefense-paid-ai-v1:README.md` or create a separate checkout from that tag. Do not reset or force-push shared history.
+- Original paid-AI release: `codedefense-paid-ai-v1` (`cda048204a46be888e46474be3f80f76908c74e7`).
+- Browser-only Free Edition: `codedefense-free-v1` (`3dcd0aadb6f0e61d73f517eb5684c4cbaa29592c`).
+- CodeTA migration branch: `feature/codeta-v2`. History is never reset or force-pushed.
