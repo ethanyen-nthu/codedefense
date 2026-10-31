@@ -6,7 +6,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(root, 'src'),
-      'server-only': path.resolve(root, 'tests/server-only.ts'),
     },
   },
   test: { include: ['tests/**/*.test.ts'], environment: 'node', clearMocks: true },

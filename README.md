@@ -1,54 +1,59 @@
-# CodeDefense
+# CodeDefense Free Edition
 
 **Know your code. Defend your logic.**
 
-CodeDefense helps introductory C++ students rehearse a programming lab demonstration. Students paste or upload their own code, review a source-grounded understanding report, and answer one TA-style question at a time in English or Traditional Chinese. No student account or installation is required.
+Rehearse a C++ lab demonstration using **your actual source**, a real browser-local C++ syntax parser, and 99 reviewed question templates. No accounts, API keys, AI provider, application server, database, subscriptions, or usage credits are needed. Students open an ordinary HTTPS website.
 
-This is an independent student project, not affiliated with National Tsing Hua University. Scores are informal practice estimates. Student code is **never compiled or executed**.
+This migrates the existing CodeDefense repository rather than replacing its interface. The CodeMirror editor, dark design, mobile source tabs, source highlights, uploads, reports, and local history are retained. The prior paid-AI implementation is preserved in Git at tag **`codedefense-paid-ai-v1`** (commit `cda048204a46be888e46474be3f80f76908c74e7`). Migration branch: `feature/codedefense-free`.
 
-## Interface overview
+![CodeDefense Free homepage](docs/home-desktop.png)
 
-- Dark workspace with blue/violet accents, responsive CodeMirror 6 C++ editor, line numbers, indentation, upload validation, and optional assignment context.
-- Source evidence expands to exact original lines; AI interpretations are labeled separately.
-- Interview shows read-only source with relevant lines highlighted and one question with hints, skips, grading, and at most one follow-up. Mobile users switch between question and source.
-- Report includes a deterministic overall score, readiness indicator, strengths, mistakes, recommendations, answered-question key points, and initial/follow-up calculations.
-- Browser-local history supports resume, review, export, and deletion. Reports download as JSON or print to PDF using the browser.
-- Two explicitly labeled demos work without credentials: digit sum and recursive factorial. Demo grading only matches keywords; it does **not** judge answer meaning. Demo modes share a curated question bank.
-- Optional browser dictation includes language selection and an editable transcript. It never submits an answer automatically. Availability depends on browser, permission, network, and speech provider; typing is the reliable fallback.
+[Editor](docs/editor-desktop.png) · [Interview](docs/interview-desktop.png) · [Mobile](docs/interview-mobile.png) · [Report](docs/report-desktop.png)
 
-![CodeDefense homepage](docs/home-desktop.png)
+## What works
 
-More screenshots: [editor](docs/editor-desktop.png), [interview](docs/interview-desktop.png), [mobile](docs/interview-mobile.png), [tablet](docs/interview-tablet.png), [report](docs/report-desktop.png). A [sample printable demo report](docs/sample-demo-report.pdf) shows the browser PDF output.
+- Paste C++ or upload UTF-8 `.cpp` / `.txt`; up to 30,000 characters, 1,500 lines, and 120,000 uploaded bytes.
+- Parse locally using **web-tree-sitter 0.25.10** and the compatible C++ WASM grammar supplied by **@vscode/tree-sitter-wasm 0.3.1**. WASM assets and license notices are bundled under `public/parser/`; no CDN or external parser endpoint is used.
+- Detect declarations/initialization, supported primitive types and strings, standard-stream-shaped input/output, branches, switch/cases, loops/nesting, arrays, functions/parameters/returns, direct self-call candidates, operators, logical AND/OR, break/continue, and block scope.
+- See exact source lines and syntax diagnostics. Fix syntax errors before starting an interview.
+- Choose Beginner / Normal TA / Strict TA, up to 5 / 10 / 15 main questions, and Standard / Explain My Code / Debugging Challenge / Quick Multiple Choice.
+- Use a new random question order or enter a repeatable seed. Distinct templates are selected only for detected constructs, with category balancing and mode preferences. A small program may support fewer questions; the UI reports the actual count instead of inventing irrelevant questions.
+- Answer one question at a time, request a hint, skip, optionally practice one supported follow-up, and review a report.
+- Resume on the same browser, including an unfinished written draft; delete individual sessions; clear history; export/import validated JSON; print or download a study report; retry weak questions.
+- After one complete successful online load, the application caches its own runtime assets and parser for offline core practice. Browser storage eviction/private mode can affect availability.
 
-## Stack and structure
+The main interface is English. Written answers can use any language, including Traditional Chinese, and the self-assessment controls include Traditional Chinese labels. A complete Traditional Chinese interface is not claimed.
 
-Next.js App Router + TypeScript, React, Tailwind CSS with custom CSS, Lucide, CodeMirror 6, Zod, official OpenAI JavaScript SDK / Responses API, Upstash Redis, Vitest, and Playwright. Native accessible controls keep the dependency list small; shadcn/ui is not needed for this version.
+## Honest assessment
 
-```text
-src/app/                       Pages, global styles, API route
-src/components/                Homepage, workspace, editor, report, security, voice
-src/lib/schemas.ts             Runtime contracts and local-history schema
-src/lib/source.ts              UTF-8 upload and exact source-evidence validation
-src/lib/scoring.ts             Deterministic score arithmetic
-src/lib/demo.ts                Curated examples and explicitly simulated feedback
-src/lib/storage.ts             Browser-only history and exports
-src/server/ai.ts               Responses SDK integration and bounded retries
-src/server/prompts.ts          Server-only teaching/security instructions
-src/server/interview.ts        Authoritative interview state machine
-src/server/security.ts         Anonymous cookie, origin, Turnstile, size protection
-src/server/redis.ts            Atomic shared quotas, leases, temporary state, usage
-tests/                        Mocked unit and backend integration tests
-e2e/                          Desktop/mobile browser journeys
-scripts/usage.mjs              Owner-only aggregate usage reader
-.github/workflows/ci.yml       Type/lint/test/build/browser checks, no AI secrets
-```
+**Quick Multiple Choice:** exact comparison with a reviewed template answer key. The report shows correct / recorded MC answers and a percentage; skipped MC questions count as incorrect. The keys are browser-local and inspectable—this is a practice tool, not a secure examination system.
 
-## Install and run locally
+**Written modes:** submit an explanation, read the reference and expected-point checklist, then choose “I understood completely,” “I understood partially,” or “I did not understand.” No AI, keyword matcher, or semantic grader assigns correctness to your prose.
 
-You need **Node.js 24 LTS** (including npm), Git, and a terminal. Students using the public website do not need these.
+Written self-assessments and optional follow-ups are kept **separate** from automatic MC results. There is no blended objective-looking score or AI readiness grade. Follow-ups do not alter the main MC score. Weak-topic retries include incorrect/skipped MC responses and incomplete written/follow-up understanding.
 
-1. Install Node from [nodejs.org](https://nodejs.org/en/download), then reopen your terminal.
-2. Check both commands. If `npm` is missing although `node` works, repair your Node installation and include npm.
+The syllabus notes and restrictions fields are saved as personal context. They do not introduce constructs absent from the parsed source, and no model interprets them. This independent project is not affiliated with NTHU; reports are informal study records.
+
+## Analysis boundaries
+
+Tree-sitter is an established syntax parser, not a compiler. The application never compiles or executes arbitrary submitted C++.
+
+- Source evidence is copied from original parsed lines. Comments, strings, and pasted “instructions” are data, not executable instructions to an AI.
+- Header inclusion, macro expansion, symbol/type checking, overload resolution, every C++11 semantic constraint, and runtime validity are not established.
+- Integer division is labeled only for conservatively resolved primitive integral declarations/parameters/literals. Pointer, aliased, shadowed, or unknown operands remain uncertain.
+- A direct unqualified self-call is reported as a **recursion candidate**, with checks against obvious name hiding and overload ambiguity. Indirect/mutual recursion and all call-resolution semantics are outside scope. The tool does not claim to have proved a valid base case or termination.
+- Conventional `for` templates are excluded for range-based loops. Switch-break and decimal-digit templates have additional source guards.
+- Occurrences are limited to the first 1,000 detected constructs and 400,000 stored evidence characters to bound large/minified reports; the analysis explicitly reports limits if reached.
+- No submitted-program output is invented. The only fixed arithmetic follow-up examples state their own valid built-in operands, such as `123 % 10` or `7 / 2`. These are reviewed language-rule examples, not execution of the submitted program.
+
+See [question-library review notes](docs/QUESTION-REVIEW.md) for maintenance and coverage rules.
+
+## Install and develop
+
+Only the maintainer needs development software. Students do not install anything.
+
+1. Install [Node.js](https://nodejs.org/en/download) **24.22.1** (including npm) and Git. Reopen your terminal.
+2. Check both Node and npm, then install the pinned package manager:
 
    ```sh
    node --version
@@ -56,126 +61,27 @@ You need **Node.js 24 LTS** (including npm), Git, and a terminal. Students using
    npm install --global pnpm@11.25.0
    ```
 
-3. Open a terminal in the folder containing `package.json`:
+3. Clone the repository and install:
 
    ```sh
+   git clone https://github.com/ethanyen-nthu/codedefense.git
+   cd codedefense
    pnpm install --frozen-lockfile
    pnpm run dev
    ```
 
-4. Open [localhost:3000](http://localhost:3000). Click **Try Demo**. No credentials are needed.
+4. Open [localhost:3000](http://localhost:3000). No `.env` file is required. Press Ctrl+C to stop.
 
-To stop the server, press Ctrl+C in that terminal. To check a production build locally:
+For a production-equivalent static preview:
 
 ```sh
 pnpm run build
 pnpm run start
 ```
 
-Live production requests require Vercel's trusted IP header. A non-Vercel `pnpm start` serves the demo, but deliberately refuses paid requests. For live local development, use `pnpm run dev` with localhost and the environment below. Do not expose that development server publicly.
+The build creates **`out/`**. The local `start` command is a small file-only development/test preview server; **it is not deployed**. Upload `out/` to static hosting. Production requires no Node.js application server, Worker, Pages Function, cookie session, or runtime environment variable. `/privacy` is an exported static page; unknown routes return the static 404 page. View transitions in the practice workspace are browser-local.
 
-## Configure live AI
-
-Copy `.env.example` to `.env.local`. On Windows PowerShell:
-
-```powershell
-Copy-Item .env.example .env.local
-```
-
-Set values in your local editor or Vercel environment settings. **Never paste secrets into source files, screenshots, issues, or chat.** `.env.local` is ignored by Git. Only the Turnstile **site key** is public; its secret and every other credential remain on the server.
-
-| Variable                         | Purpose / default                                                                             |
-| -------------------------------- | --------------------------------------------------------------------------------------------- |
-| `OPENAI_API_KEY`                 | Your OpenAI project API credential; required for live AI                                      |
-| `OPENAI_MODEL`                   | Server-only model identifier; defaults to `gpt-6.1-sol`                                       |
-| `UPSTASH_REDIS_REST_URL`         | Upstash Redis REST endpoint                                                                   |
-| `UPSTASH_REDIS_REST_TOKEN`       | Read/write Redis REST token, never the public client                                          |
-| `SESSION_SECRET`                 | Random secret with at least 32 characters, stable across deployments                          |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Public Turnstile widget key                                                                   |
-| `TURNSTILE_SECRET_KEY`           | Private verification secret                                                                   |
-| `APP_ORIGIN`                     | Exact public origin, e.g. `https://your-domain.example`; localhost locally; no trailing slash |
-| `DAILY_GLOBAL_REQUEST_CAP`       | 300 generation reservations per UTC day                                                       |
-| `DAILY_SESSION_REQUEST_CAP`      | 25 per signed anonymous browser identity per UTC day                                          |
-| `DAILY_IP_REQUEST_CAP`           | 60 per hashed trusted IP per UTC day                                                          |
-| `MAX_CONCURRENT_AI_REQUESTS`     | 3 shared active operations; max configurable 20                                               |
-| `MAX_CODE_CHARS`                 | 30,000 UTF-16 code units; may be lowered, hard ceiling 30,000                                 |
-| `MAX_INPUT_TOKENS`               | 24,000; provider-counted before generation, max configurable 64,000                           |
-| `MAX_OUTPUT_TOKENS`              | 10,000; per operation also capped at 4,500 analysis / 3,500 grading / 10,000 questions        |
-| `INPUT_USD_PER_MILLION`          | Optional owner-configured current model input price                                           |
-| `OUTPUT_USD_PER_MILLION`         | Optional current model output price; configure both prices or neither                         |
-
-Malformed numeric settings and missing required infrastructure fail closed. The homepage and demo remain accessible. Changes to `.env.local` require restarting the development server; changes on Vercel require a new deployment. The public site key is returned from the status endpoint to support runtime configuration without exposing private credentials.
-
-Generate the session secret locally, then paste it directly into the environment settings:
-
-```sh
-node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
-```
-
-Do not commit the result. Rotating it invalidates existing anonymous cookies and live resume access. Browser-local reports remain available.
-
-### 1. OpenAI
-
-Create an OpenAI API project and a project API key in the [API platform](https://platform.openai.com/api-keys). Add billing/credits and model access in that account. A ChatGPT subscription alone is not a substitute for a configured API project. Enter the key only as `OPENAI_API_KEY` on your server.
-
-The application uses [`responses.parse` with Zod Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=responses), `store: false`, and the SDK's input-token counting endpoint. [`gpt-6.1-sol`](https://developers.openai.com/api/docs/models/gpt-6.1-sol) remains the requested default; actual access depends on your project. You can change `OPENAI_MODEL` without changing source. The replacement must support the Responses API, input-token counting, and JSON Schema Structured Outputs.
-
-Configure project spend alerts, supported budget limits, and restricted credentials in the provider account separately. App quotas are a second layer, not a promise of an exact dollar ceiling; some provider budgets are alerts rather than hard cutoffs. Check the controls that your project actually provides.
-
-### 2. Upstash Redis
-
-Create a Redis database in [Upstash Console](https://console.upstash.com/), preferably near your Vercel region. Copy its **REST URL** and **read/write REST token** to the corresponding variables. Do not use a read-only token; sessions, counters, and locks require writes. See [Upstash's TypeScript SDK setup](https://upstash.com/docs/redis/sdks/ts/getstarted).
-
-Use a dedicated database or retain the `codedefense:v1:` namespace. Do not configure automatic eviction of rate-limit keys without understanding that it can reopen quota. Set provider-side Redis request/storage limits and alerts as appropriate. Application TTLs remove active keys, but provider backups and retention policies are separate.
-
-### 3. Cloudflare Turnstile
-
-Create a Turnstile widget in the [Cloudflare dashboard](https://dash.cloudflare.com/) and add your deployed hostname. Add localhost for development or use Cloudflare's documented test keys **only in development**. Configure both the site key and secret. See [widget setup](https://developers.cloudflare.com/turnstile/get-started/widget-management/) and [server-side validation](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/).
-
-Every paid operation requires a fresh token. Verification checks success, action `practice`, and the hostname from `APP_ORIGIN`. Expired tokens reset. No CAPTCHA bypass or unrestricted fallback exists. Preview hostnames need their own allowed-hostname/origin configuration; keep unconfigured previews demo-only.
-
-## Normal practice workflow
-
-1. Paste/upload source and choose its C++ standard (default C++11).
-2. Add optional title, requirements, taught topics, and restrictions.
-3. Read the provider notice, consent, complete the security check, and request analysis.
-4. Review evidence and AI interpretations. Choose difficulty, length, and mode.
-5. Answer one question at a time. Hints and skips do not call OpenAI. One follow-up may be offered after each main response.
-6. Review the final report; retry all questions below 8/10 or return to the editor.
-7. Export the report/history or use Print / Save PDF to keep a copy.
-
-Correct short answers can receive full credit. Scores use technical correctness 0–4, understanding 0–4, and relevant consequences 0–2. Initial score is always retained. If answered, the single follow-up produces final score `(initial + follow-up) / 2`, rounded to one decimal. Skipping a follow-up retains the initial score; skipping a main question scores 0. Overall is rounded `sum(final) / (main question count × 10) × 100`.
-
-Default Normal TA / 10 / Standard Interview. Live modes: Standard mixes concepts and traces; Explain emphasizes why; Debugging uses hypotheses and plausible issues; Rapid Fire uses short prompts and an optional elapsed timer with no grading penalty. Demo modes intentionally use the same curated bank and are labeled accordingly.
-
-## Security, privacy, and cost design
-
-- **Server authority:** private expected points, rubrics, questions, grading results, and state transitions live in Redis. A signed HttpOnly SameSite=Strict cookie selects an anonymous owner. Cross-owner session IDs fail. Client-supplied scores or extra grading fields are rejected.
-- **Minimal disclosures:** only the current public question is returned before answering. A requested hint may reveal guidance; skipping reveals that question's key points. Other question keys stay private. Demo keys are public by design.
-- **No execution:** code is only text in JSON requests and escaped React/CodeMirror output. No compiler, shell, execution service, or AI tool is available.
-- **Injection resistance:** system instructions classify code, comments, strings, context, and student answers as untrusted data. Structured schema checks and exact evidence checks reduce risk, but cannot prove semantic accuracy or eliminate every prompt-injection attempt. AI feedback remains reviewable and labeled.
-- **Input bounds:** UTF-8 `.cpp`/`.txt` only, max 120,000 bytes, 30,000 characters, 1,500 lines, context/answer field limits, a 250,000-byte streamed JSON cap, and provider-counted input-token cap. No arbitrary file endpoint.
-- **Distributed limits:** one atomic Redis EVAL checks global, browser, and IP daily budgets before incrementing all three. Separate session/IP per-minute limits protect the endpoint. No Redis means no paid requests. Vercel's overwritten `x-vercel-forwarded-for` supplies the IP; arbitrary client proxy headers are not trusted. Other production hosts require an explicit trusted-proxy implementation.
-- **Concurrency:** owner lock plus global sorted-set leases prevent parallel mutations and cap expensive operations. Leases expire after 200 seconds; SDK requests time out at 35 seconds, token counts at 8 seconds, and the route at 120 seconds.
-- **Retries and duplicates:** at most two generation attempts for schema/evidence failures; each reserves quota. SDK automatic retries are disabled. Known auth/model/rate errors and transport connection errors stop immediately. Five-minute payload fingerprints contain session IDs only; replay retrieves current server state, not stale feedback. State checks reject regrading an already answered question.
-- **Request accounting:** quotas count generation reservations, including retries and failures after reservation. Input-token counting is part of each reservation. An analysis + generation + 10 main answers + 10 follow-ups uses 22 reservations without retries. A 15-question interview with many follow-ups exceeds the default 25; choose fewer questions or deliberately increase the owner limit. Hints, skips, next, resume, and retrying an existing question bank do not spend generation quota.
-- **Retention:** live source/state expires no later than 24 hours from creation (retry sessions inherit that deadline). Browser identity cookie lasts 24 hours and refreshes on status fetch. Duplicate identifiers expire after 5 minutes. Usage and burst counters expire 48 hours after use; aggregate token/cost totals after 7 days. Browser history keeps the last 15 sessions until deleted or storage is cleared.
-- **Deletion:** Delete History removes local drafts/history and attempts to delete all locally known live sessions. Unreachable or already evicted local entries expire automatically; counters are not reset by deletion. Provider retention/backups are separate. No account sync or cross-device resume.
-- **Logging:** the application emits only a generic infrastructure error category. It never intentionally logs raw source, answers, provider error bodies, or keys. Hosting and external providers still process request metadata; avoid adding payload logging integrations.
-- **Provider data:** `store: false` does not mean “zero external retention.” Review [OpenAI data controls](https://developers.openai.com/api/docs/guides/your-data) and the hosting/Redis policies before handling confidential coursework.
-
-To inspect your own aggregate daily usage locally (requires `.env.local` with Redis credentials):
-
-```sh
-node --env-file=.env.local scripts/usage.mjs
-node --env-file=.env.local scripts/usage.mjs 2026-10-31
-```
-
-No public usage/admin endpoint exposes account totals. Token totals omit requests whose final usage was unavailable. Optional USD estimates use configured prices and omit cache discounts, taxes, and other billing adjustments; they are never exact spending or enforcement. Update both prices when changing the model. Consult provider billing for actual costs.
-
-## Tests and quality checks
-
-Normal tests do not contact OpenAI, Cloudflare, or Upstash and incur no AI charges. SDK, server-store, Turnstile, and quota boundaries are mocked in backend tests. Browser tests exercise the real local production UI, plus explicitly mocked failure/live contracts. They do not establish live provider availability or validate a physical phone/iPad.
+## Tests
 
 ```sh
 pnpm run typecheck
@@ -186,65 +92,89 @@ pnpm exec playwright install chromium
 pnpm run test:e2e
 ```
 
-Close any old server on port 3000 before browser checks so tests run the current build. The Playwright configuration starts a production server with a fixed local origin and tests desktop and mobile Chromium. Use `pnpm exec playwright show-report` to inspect results. CI performs all these checks without private environment values.
+Unit tests use the **actual bundled WASM parser**, not a mocked concept detector. Browser tests run the exported `out/` files, with the production security-header policy. They cover Armstrong/switch/recursive examples, malformed source, source references, 10-question written practice, exact MC keys, assessment separation, follow-ups, uploads, history round-trips, refresh recovery, mobile/keyboard use, static routes, no non-GET/external processing requests, and offline parsing.
 
-The lockfile pins compatible versions. TypeScript is pinned to 6.0.3 because the lint parser's supported range excludes TypeScript 7. ESLint 9 is required by the installed React/accessibility plugins' peer ranges; its upstream deprecation is a known tooling limitation. Do not upgrade ESLint/TypeScript alone without checking peer compatibility and rerunning checks. The production runtime does not include ESLint.
+Close other servers on port 3000 before running Playwright. CI performs the same checks without any API credentials. `pnpm run format` formats the source. `pnpm run lint` is pinned to ESLint 9 because the installed React/accessibility plugins do not yet support ESLint 10; the lockfile pins compatible versions. TypeScript 6 is retained for the same lint-parser compatibility reason.
 
-## GitHub: connect this checkout
+Executed delivery results and unverified platform boundaries are recorded in [docs/VERIFICATION.md](docs/VERIFICATION.md).
 
-Use the `ethanyen-nthu` account. If a remote has already been created for this checkout, keep it; do not initialize or create another repository. Check:
+## Deploy to Cloudflare Pages Free
 
-```sh
-git remote -v
-git status
-git branch --show-current
+Use the **Pages static export** workflow, not Workers, not `next-on-pages`, and not a Functions deployment. Cloudflare documents the [Next.js static HTML export preset](https://developers.cloudflare.com/pages/framework-guides/nextjs/deploy-a-static-nextjs-site/).
+
+1. Visit [Cloudflare Dashboard](https://dash.cloudflare.com/), create a free account if needed, and complete email/account verification yourself. You do not need to purchase a domain or select a paid plan.
+2. In **Workers & Pages**, select **Create application → Pages → Connect to Git / Import an existing Git repository**. Dashboard wording can vary; choose the Pages Git workflow.
+3. Connect your GitHub account and permit access to **`ethanyen-nthu/codedefense`**. You can restrict the integration to this repository. Review any authorization page before accepting it.
+4. Select the existing repository, then **Begin setup**. Name the Pages project (for example `codedefense-free`, if available).
+5. Configure:
+
+   | Setting                     | Value                                          |
+   | --------------------------- | ---------------------------------------------- |
+   | Production branch           | `main` after the tested migration PR is merged |
+   | Framework preset            | **Next.js (Static HTML Export)**               |
+   | Root directory              | repository root / blank                        |
+   | Build command               | **`pnpm run build`**                           |
+   | Build output directory      | **`out`**                                      |
+   | Build system                | current v3 image                               |
+   | `NODE_VERSION` (build-only) | **`24.22.1`**                                  |
+   | `PNPM_VERSION` (build-only) | **`11.25.0`**                                  |
+
+   The build command includes parser preparation and static/offline packaging; do not replace it with an adapter command. `.node-version` and `.nvmrc` also pin Node. Cloudflare supports version overrides for Node and pnpm; its v3 image does not infer these versions reliably from `engines` or lockfile version alone. See the [build-image documentation](https://developers.cloudflare.com/pages/configuration/build-image/).
+
+6. Leave all API keys, secrets, database bindings, and Functions settings **empty**. The only variables above choose build tools and are not runtime credentials.
+7. Save and deploy. Wait for a successful build, then open the **actual `pages.dev` URL Cloudflare returns**. No public URL is assumed until that response is verified.
+8. In a clean browser, paste the Armstrong program, inspect while/modulo/variable evidence, then try switch and recursion. Complete an interview, export/import history, refresh, and test phone-width source tabs. Confirm `/api/practice` is absent and code submission produces no network POST or external processing request.
+9. After a complete online load, test offline practice in browser developer tools. Browser caches/storage are best effort; save a history export as your backup.
+10. Future pushes to `main` automatically rebuild and publish through the connected Git integration. Use branches/PRs and passing CI before merging. Preview branches can use the same static configuration and need no secrets.
+
+The application has **no metered runtime dependency** and is usable on the Pages Free plan within that provider’s limits. A free `pages.dev` address avoids domain renewal fees. Cloudflare’s current Free plan has build quotas (documented as 500 builds/month); provider terms and future pricing are not a promise this repository can make. See [Pages limits](https://developers.cloudflare.com/pages/platform/limits/). No paid feature is needed for this app.
+
+### Optional direct upload
+
+You can also build locally and upload only `out/` using Cloudflare’s Pages Direct Upload workflow. Git-connected Pages is preferred for automatic updates. Do not upload `.next/`, source `.git/`, `node_modules/`, or the whole repository as the static output. A direct-upload project may have different Git-integration migration constraints; choose the Git workflow first if you want automatic builds.
+
+## Privacy, offline data, and portability
+
+Source, drafts, progress, MC results, written self-assessments, and saved reports remain browser-local. Loading the public site still sends ordinary HTTP metadata to its static hosting provider. There is no configured analytics, external font, speech service, AI endpoint, or remote storage dependency. Parser files are self-hosted. Offline assets are cached under a build-specific service-worker cache and old app caches are removed on activation; personal practice data is in localStorage, separate from that asset cache.
+
+History exports contain source and answers. Keep them somewhere you trust. Import validates format/version, session shape/progress, size, duplicate IDs, and source evidence before changing current history. Free history uses a new v2 key; old paid-AI history remains separate with explicit legacy export/deletion controls. Switching to a different domain/browser does not migrate localStorage automatically—export on the old origin and import on the new one.
+
+## Repository map
+
+```text
+src/app/                 Static Next.js pages and preserved dark styles
+src/components/          Reused editor/home/workspace/report, local privacy notice
+src/lib/analyzer.ts      Actual syntax-tree traversal and conservative type evidence
+src/lib/question-bank.ts 99 reviewed C++11 template entries and follow-ups
+src/lib/engine.ts        Seeded question selection and assessment state machine
+src/lib/schemas.ts       Runtime schemas and versioned study records
+src/lib/storage.ts       Local history, validation, import/export
+src/lib/source.ts        UTF-8 uploads, limits, normalization, exact evidence checks
+src/lib/examples.ts      Armstrong, switch, recursive factorial source programs
+public/parser/           Bundled WASM and upstream license/provenance files
+public/_headers          Static Cloudflare security headers
+scripts/                 Build preparation, static verification, offline cache, preview
+tests/                   Real-WASM unit tests and state/storage tests
+e2e/                     Desktop/mobile tests against exported static files
+out/                     Generated deployment output (Git-ignored)
 ```
-
-If no remote exists, create an empty repository named `codedefense` at [GitHub New repository](https://github.com/new). Do not add another README or license if connecting this existing checkout. Then:
-
-```sh
-git remote add origin https://github.com/ethanyen-nthu/codedefense.git
-git push -u origin main
-git push -u origin feature/codedefense
-```
-
-Open a pull request from `feature/codedefense` into `main`, review the changes and checks, and merge when ready. If Git asks you to authenticate, complete its normal browser sign-in as `ethanyen-nthu`; never put a token into a remote URL. This project does not select a license on your behalf.
-
-## Deploy on Vercel from GitHub
-
-1. Sign into the intended Vercel account/team. Confirm that it belongs to you before importing.
-2. Select **Add New → Project**, then import your `ethanyen-nthu/codedefense` GitHub repository. Install the Vercel GitHub integration for that repository if your account requires it.
-3. Select framework **Next.js**. Root directory is the folder containing `package.json` (the repository root if this folder was pushed as its own repo). Use Node 24 and the standard install/build settings. No custom `vercel.json` is required.
-4. Deploy without secrets first to make the public homepage and explicitly labeled demos available. The live endpoints will return safe 503 responses.
-5. In **Project → Settings → Environment Variables**, add the variables above for Production. Enter secrets directly there. Use a different namespace/database/secret for previews if enabling paid AI on previews.
-6. Set `APP_ORIGIN` to the **exact HTTPS production origin** Vercel assigned, without a trailing slash. Add that hostname to Turnstile. Keep one canonical origin for paid sessions; use redirects or dedicated environment configuration for alternate domains.
-7. Redeploy so the environment applies. Open the site in a clean browser. Confirm demo flow, then `/api/practice` status `{live:true}` after configuration. Status reflects configuration presence, not provider connectivity.
-8. Manually run one short live interview with a known C++ example. Check questions, line highlights, Traditional Chinese/English grading, reload, report, quota behavior, and provider usage. This smoke test uses your API credits; do it before announcing live AI to classmates.
-9. Verify `/api/practice` never exposes private keys, and the browser network never calls OpenAI directly.
-
-Vercel's standard Git integration deploys pushes to the production branch and creates previews for PR branches. See [Vercel Git integration](https://vercel.com/docs/git) and [Next.js deployment](https://vercel.com/docs/frameworks/full-stack/nextjs). CI verifies code; use branch protection/required checks or available Vercel deployment checks to prevent untested changes from going live. Ordinary Git deployments are not automatically gated by this workflow alone.
-
-To update: create a branch, edit, run the checks, commit, push, open/review a PR, then merge into the production branch. Never edit source or secrets directly in a deployed client bundle.
 
 ## Troubleshooting
 
-| Symptom                       | Check / fix                                                                                                                                                                           |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm` missing                 | Repair/install Node with npm, then reopen terminal.                                                                                                                                   |
-| pnpm Windows `EPERM`          | Use a normal permitted terminal and a writable package-store location. Do not disable security software.                                                                              |
-| Live AI disabled              | Check every required variable and a 32+ character `SESSION_SECRET`; restart/redeploy. Demo remains available.                                                                         |
-| Security widget missing/fails | Verify public key, network, allowed hostname, and exact `APP_ORIGIN`. Turnstile must be reachable; typing alone cannot bypass a paid request's check.                                 |
-| 403 on local requests         | Use the same hostname as `APP_ORIGIN` (`localhost` and `127.0.0.1` differ). Paid production requests require Vercel's trusted proxy.                                                  |
-| 401 or expired session        | Reload for a valid cookie; resume only in the original browser profile. Source/local reports can be reused for a new interview.                                                       |
-| 409 busy                      | Wait for the request to finish; stalled leases expire after 200 seconds. Avoid repeated clicks.                                                                                       |
-| 429 daily cap                 | Counters reset by UTC date. Try demo, return tomorrow, or intentionally adjust server budgets. Deleting local history does not reset quotas.                                          |
-| 502 AI response               | Check model access, supported Structured Outputs/counting, output limits, billing, and provider status privately. Invalid schema/evidence retries once; code and progress stay local. |
-| 503 infrastructure            | Verify Redis REST URL/read-write token, network, environment scope, and proxy. Do not add an in-memory rate-limit fallback for production.                                            |
-| Input-token limit             | Shorten code/context or deliberately increase `MAX_INPUT_TOKENS` within the hard bound and budget. Character limits and token limits are separate.                                    |
-| Source quote rejected         | AI evidence must equal full original numbered lines exactly. A retry corrects many cases; do not silently substitute made-up quotes.                                                  |
-| New build serves old UI       | Stop the previous local server; rebuild/restart. On Vercel confirm commit, environment, and production alias.                                                                         |
-| Dictation denied/unavailable  | Use typed answers. Optional recognition varies by browser/provider; the app cannot guarantee support or permission.                                                                   |
-| History missing               | Verify original device/profile. Cleared/private browser storage is not recoverable through the server after its expiry.                                                               |
-| GitHub CI unavailable         | Ensure the workflow was included in the pushed commit and Actions is enabled. Run the same commands locally.                                                                          |
+| Problem                          | What to check                                                                                                                        |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm` is missing                 | Repair Node installation including npm and reopen the terminal.                                                                      |
+| Windows pnpm `EPERM`             | Use a permitted writable package store/terminal; do not disable security software.                                                   |
+| WASM 404 / parse cannot load     | Deploy all of `out/`, including `/parser/`; run the full build command. Open via HTTP(S), not `file://`.                             |
+| WASM blocked by CSP              | Keep the shipped static `_headers`, including `wasm-unsafe-eval` and same-origin fetch permissions.                                  |
+| Syntax diagnostics               | Fix delimiters/statements at and before the cited line; a syntax tree is not a semantic compiler check.                              |
+| Fewer than requested questions   | The source/difficulty supports a smaller reviewed pool; use a richer program or Normal/Strict TA. No irrelevant questions are added. |
+| Written answer has no score      | Intended: compare the reference and self-assess; switch to Quick Multiple Choice for automatic answer keys.                          |
+| Cloudflare picks the wrong tools | Set `NODE_VERSION=24.22.1` and `PNPM_VERSION=11.25.0`, then rebuild.                                                                 |
+| Build succeeds but site is empty | Output directory must be `out`, not `.next` or repository root.                                                                      |
+| Offline not ready                | First complete an online load, allow service workers/cache, then reload. Private browsing/storage eviction may remove caches.        |
+| History missing on `pages.dev`   | Storage is origin-specific. Export from the old origin and import into this one.                                                     |
+| Old UI persists                  | Reconnect, reload to install the newer asset cache, then reload once more if an old tab is still controlled by the previous worker.  |
+| Port 3000 busy in browser tests  | Stop the old preview before running Playwright; tests start their own static server.                                                 |
 
-See `docs/VERIFICATION.md` for the actual executed checks and remaining unverified boundaries for this delivery.
+To inspect the original implementation without changing or deleting it, use `git show codedefense-paid-ai-v1:README.md` or create a separate checkout from that tag. Do not reset or force-push shared history.

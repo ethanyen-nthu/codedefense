@@ -11,36 +11,55 @@ import {
   Upload,
   FileCode2,
   Trash2,
-  ChevronRight,
-  Sparkles,
   Lightbulb,
   SkipForward,
-  CheckCircle2,
   AlertCircle,
   LoaderCircle,
   Download,
   Menu,
   X,
-  Clock,
-  MessageSquare,
   Plus,
+  CheckCircle2,
+  FolderInput,
 } from 'lucide-react';
 import { Home } from './home';
-import { VoiceInput } from './voice-input';
-import { SecurityCheck } from './security-check';
+import { Privacy } from './privacy';
 import { PracticeReport } from './practice-report';
 import {
   configSchema,
+  contextSchema,
   emptyContext,
-  type ApiInput,
+  type Analysis,
   type AssignmentContext,
   type InterviewConfig,
   type PracticeSession,
+  type Assessment,
 } from '@/lib/schemas';
-import { createDemo, demoAction, DEMOS, retryDemo, startDemo } from '@/lib/demo';
-import { deleteHistory, downloadJson, DRAFT_KEY, loadHistory, saveHistory } from '@/lib/storage';
+import { EXAMPLES } from '@/lib/examples';
+import {
+  createSession,
+  submit,
+  assess,
+  advance,
+  followUp,
+  canAdvance,
+  retryWeak,
+  summarize,
+  generateQuestions,
+} from '@/lib/engine';
+import {
+  ACTIVE_KEY,
+  DRAFT_KEY,
+  loadHistory,
+  saveHistory,
+  clearHistory,
+  removeSession,
+  exportHistory,
+  importHistory,
+  downloadJson,
+  legacyHistory,
+} from '@/lib/storage';
 import { readSourceFile, validateSource } from '@/lib/source';
-import { summarize } from '@/lib/scoring';
 const CodeEditor = dynamic(() => import('./code-editor').then((m) => m.CodeEditor), {
   ssr: false,
   loading: () => (
@@ -51,128 +70,98 @@ const CodeEditor = dynamic(() => import('./code-editor').then((m) => m.CodeEdito
   ),
 });
 type View = 'home' | 'editor' | 'analysis' | 'interview' | 'report' | 'history' | 'privacy' | 'how';
-const ACTIVE = 'codedefense-active-v1';
-function viewFor(s: PracticeSession): View {
-  return s.stage === 'analysis' ? 'analysis' : s.stage === 'complete' ? 'report' : 'interview';
-}
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Something went wrong. Please retry.';
-}
-
+const assessments: [Assessment, string][] = [
+  ['complete', 'I understood completely / 完全理解'],
+  ['partial', 'I understood partially / 部分理解'],
+  ['not-yet', 'I did not understand / 尚未理解'],
+];
 export function Workspace() {
   const [view, setView] = useState<View>('home'),
     [code, setCode] = useState(''),
     [context, setContext] = useState<AssignmentContext>(emptyContext),
+    [analysis, setAnalysis] = useState<Analysis | null>(null),
     [config, setConfig] = useState<InterviewConfig>(configSchema.parse({}));
   const [session, setSession] = useState<PracticeSession | null>(null),
     [history, setHistory] = useState<PracticeSession[]>([]),
-    [answer, setAnswer] = useState(''),
     [busy, setBusy] = useState(''),
-    [error, setError] = useState('');
-  const [status, setStatus] = useState<{
-      live: boolean;
-      maxCode: number;
-      siteKey?: string | null;
-    } | null>(null),
-    [token, setToken] = useState(''),
-    [challengeKey, setChallengeKey] = useState(0),
-    [consent, setConsent] = useState(false),
+    [error, setError] = useState(''),
+    [storageWarning, setStorageWarning] = useState(''),
     [mobileCode, setMobileCode] = useState(false),
     [navOpen, setNavOpen] = useState(false),
-    [elapsed, setElapsed] = useState(0),
-    [storageWarning, setStorageWarning] = useState('');
+    [legacy, setLegacy] = useState<unknown[]>([]);
   const upload = useRef<HTMLInputElement>(null),
-    main = useRef<HTMLElement>(null),
+    historyUpload = useRef<HTMLInputElement>(null),
     pending = useRef(false);
-  async function api(input: ApiInput): Promise<PracticeSession> {
-    const response = await fetch('/api/practice', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-      signal: AbortSignal.timeout(110000),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'The request failed. Please retry.');
-    return data as PracticeSession;
-  }
   useEffect(() => {
     const list = loadHistory();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Hydrate browser-only storage after the static HTML first renders.
     setHistory(list);
+    setLegacy(legacyHistory());
     try {
       const draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
       if (typeof draft?.code === 'string') setCode(draft.code);
-      if (draft?.context) setContext({ ...emptyContext, ...draft.context });
-      const active = list.find((s) => s.id === localStorage.getItem(ACTIVE));
+      const parsed = contextSchema.safeParse({ ...draft?.context, standard: 'C++11' });
+      if (parsed.success) setContext(parsed.data);
+      const active = list.find((s) => s.id === localStorage.getItem(ACTIVE_KEY));
       if (active) {
         setSession(active);
-        setCode(active.code);
-        setContext(active.context);
-        setView(viewFor(active));
-        if (!active.demo)
-          void api({ action: 'resume', id: active.id })
-            .then((s) => {
-              setSession(s);
-              setView(viewFor(s));
-            })
-            .catch((e) => setError(errorMessage(e)));
+        setView(active.stage === 'complete' ? 'report' : 'interview');
+      } else {
+        const hash = window.location.hash.slice(1);
+        if (['editor', 'history', 'privacy', 'how'].includes(hash)) setView(hash as View);
       }
     } catch {
-      setStorageWarning(
-        'Browser storage is unavailable or damaged. Export your reports before leaving.',
-      );
+      setStorageWarning('Browser storage could not be read. Export your reports before leaving.');
     }
-    void fetch('/api/practice', { cache: 'no-store' })
-      .then((r) => {
-        if (!r.ok) throw new Error();
-        return r.json();
-      })
-      .then(setStatus)
-      .catch(() => setStatus({ live: false, maxCode: 30000 }));
+    if ('serviceWorker' in navigator)
+      void navigator.serviceWorker.register('/sw.js').catch(() => {});
   }, []);
   useEffect(() => {
     const timer = setTimeout(() => {
       try {
         localStorage.setItem(DRAFT_KEY, JSON.stringify({ code, context }));
       } catch {
-        setStorageWarning('Your browser could not save this draft. Keep a copy of your code.');
+        setStorageWarning('Draft storage is full or unavailable. Keep a separate source copy.');
       }
-    }, 350);
+    }, 300);
     return () => clearTimeout(timer);
   }, [code, context]);
   useEffect(() => {
-    if (view !== 'interview' || !session?.config.timer || session.stage !== 'question') return;
-    const started = Date.now();
-    const timer = setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000);
-    return () => clearInterval(timer);
-  }, [view, session?.current?.id, session?.config.timer, session?.stage]);
-  useEffect(() => {
-    setElapsed(0);
-  }, [session?.current?.id]);
+    if (!session) return;
+    const timer = setTimeout(() => {
+      try {
+        saveHistory(session);
+        setHistory(loadHistory());
+      } catch {
+        setStorageWarning('History could not be saved. Download this session before closing.');
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [session]);
   function navigate(next: View) {
     setView(next);
-    setError('');
     setNavOpen(false);
     setMobileCode(false);
-    if (next === 'home' || next === 'editor' || next === 'history')
-      try {
-        localStorage.removeItem(ACTIVE);
-      } catch {}
+    setError('');
+    try {
+      localStorage.removeItem(ACTIVE_KEY);
+    } catch {}
+    window.history.replaceState(null, '', `#${next}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   function persist(s: PracticeSession) {
     setSession(s);
-    setView(viewFor(s));
-    setAnswer('');
+    setView(s.stage === 'complete' ? 'report' : 'interview');
     setMobileCode(false);
     try {
       saveHistory(s);
-      localStorage.setItem(ACTIVE, s.id);
       setHistory(loadHistory());
+      localStorage.setItem(ACTIVE_KEY, s.id);
     } catch {
-      setStorageWarning('History could not be saved. Download your practice report to keep it.');
+      setStorageWarning('Unable to save locally. Export the current session to keep it.');
     }
   }
-  async function run(label: string, work: () => Promise<void> | void) {
+  async function run(label: string, work: () => void | Promise<void>) {
     if (pending.current) return;
     pending.current = true;
     setBusy(label);
@@ -180,70 +169,31 @@ export function Workspace() {
     try {
       await work();
     } catch (e) {
-      setError(errorMessage(e));
+      setError(e instanceof Error ? e.message : 'Please try again.');
     } finally {
-      pending.current = false;
       setBusy('');
-      setToken('');
-      setChallengeKey((k) => k + 1);
+      pending.current = false;
     }
   }
-  function demo(index = 0) {
-    setError('');
-    setCode(DEMOS[index].code);
-    setContext({ ...emptyContext, title: DEMOS[index].name });
-    persist(createDemo(index));
-  }
-  async function analyze() {
-    await run('Reading your source…', async () => {
-      const valid = validateSource(code, status?.maxCode);
-      if (!consent) throw new Error('Confirm the AI processing notice to continue.');
-      persist(
-        await api({ action: 'analyze', code: valid, context, consent: true, challenge: token }),
-      );
+  async function analyze(source = code, exampleTitle?: string) {
+    await run('Parsing C++ locally…', async () => {
+      const valid = validateSource(source);
+      const { analyzeCpp } = await import('@/lib/analyzer');
+      const report = await analyzeCpp(valid);
+      setCode(valid);
+      if (exampleTitle) setContext({ ...emptyContext, title: exampleTitle });
+      setAnalysis(report);
+      setView('analysis');
     });
   }
-  async function start() {
-    if (!session) return;
-    await run('Preparing your interview…', async () =>
-      persist(
-        session.demo
-          ? startDemo(session, config)
-          : await api({ action: 'start', id: session.id, config, challenge: token }),
-      ),
+  function begin() {
+    if (!analysis) return;
+    void run('Preparing source-specific questions…', () =>
+      persist(createSession(code, analysis, context, config)),
     );
   }
-  async function action(action: 'answer' | 'hint' | 'skip' | 'next') {
-    if (!session) return;
-    await run(
-      action === 'answer' ? 'Reviewing your reasoning…' : 'Updating your practice…',
-      async () => {
-        if (action === 'answer' && !answer.trim()) throw new Error('Write an answer first.');
-        if (session.demo) persist(demoAction(session, action, answer));
-        else
-          persist(
-            await api(
-              action === 'answer'
-                ? {
-                    action,
-                    id: session.id,
-                    questionId: session.current!.id,
-                    answer,
-                    followUp: session.stage === 'followup',
-                    challenge: token,
-                  }
-                : { action, id: session.id },
-            ),
-          );
-      },
-    );
-  }
-  async function resume(s: PracticeSession) {
-    await run('Resuming your session…', async () => {
-      setCode(s.code);
-      setContext(s.context);
-      persist(s.demo || s.stage === 'complete' ? s : await api({ action: 'resume', id: s.id }));
-    });
+  function action(work: () => PracticeSession) {
+    void run('Updating practice…', () => persist(work()));
   }
   function editor() {
     if (session) {
@@ -252,59 +202,52 @@ export function Workspace() {
     }
     navigate('editor');
   }
-  function newInterview() {
+  function fresh() {
     if (!session) return;
-    setConfig(session.config);
-    if (session.demo) {
-      demo(DEMOS.findIndex((d) => d.code === session.code));
-    } else {
-      void run('Preparing a fresh interview…', async () =>
-        persist(await api({ action: 'restart', id: session.id })),
-      );
+    setCode(session.code);
+    setContext(session.context);
+    setAnalysis(session.analysis);
+    setConfig({ ...session.config, seed: '' });
+    navigate('analysis');
+  }
+  function deleteOne(id: string) {
+    if (!window.confirm('Delete this session from this browser?')) return;
+    try {
+      removeSession(id);
+      setHistory(loadHistory());
+      if (session?.id === id) setSession(null);
+    } catch {
+      setError('Could not delete this session from browser storage.');
     }
   }
-  async function retry() {
-    if (!session) return;
-    await run('Preparing another attempt…', async () =>
-      persist(session.demo ? retryDemo(session) : await api({ action: 'retry', id: session.id })),
-    );
-  }
-  async function removeHistory() {
-    if (
-      !window.confirm(
-        'Delete all browser-local practice history and drafts? Active live session state will also be deleted where reachable.',
-      )
-    )
+  function clear() {
+    if (!window.confirm('Clear all Free Edition history and its source draft on this browser?'))
       return;
-    await run('Deleting history…', async () => {
-      let failures = 0;
-      for (const s of history.filter((s) => !s.demo)) {
-        try {
-          await api({ action: 'delete', id: s.id });
-        } catch {
-          failures++;
-        }
-      }
-      deleteHistory();
-      localStorage.removeItem(ACTIVE);
+    try {
+      clearHistory();
       setHistory([]);
       setSession(null);
       setCode('');
       setContext(emptyContext);
-      setView('history');
-      if (failures)
-        setError(
-          'Local data was deleted. Some temporary server sessions could not be reached; they expire within 24 hours.',
-        );
-    });
+    } catch {
+      setError('Could not clear browser storage.');
+    }
   }
-  const isDemo = Boolean(session?.demo),
-    current = session?.current,
-    last = session?.records.at(-1),
-    showFeedback = session?.stage === 'feedback';
-  const liveAllowed = Boolean(status?.live && token),
-    needsChallenge =
-      view === 'editor' || view === 'analysis' || (view === 'interview' && !showFeedback);
+  const q = session?.questions[session.index],
+    record = session?.records.at(-1),
+    isFollow = session?.stage === 'followup' || session?.stage === 'followup-feedback',
+    feedback = session?.stage === 'feedback' || session?.stage === 'followup-feedback',
+    mc = session?.config.mode === 'Quick Multiple Choice' && !isFollow;
+  const displayQuestion = isFollow ? q?.followUp?.text : q?.text,
+    reference = isFollow ? q?.followUp?.explanation : q?.explanation,
+    expected = isFollow ? q?.followUp?.expected : q?.expected;
+  const selectedAssessment =
+      session?.stage === 'followup-feedback' ? record?.followUp?.assessment : record?.assessment,
+    skipped = session?.stage === 'followup-feedback' ? record?.followUp?.skipped : record?.skipped;
+  const pool =
+    analysis && !analysis.diagnostics.length
+      ? generateQuestions(analysis, { ...config, seed: config.seed || 'preview' }).length
+      : 0;
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main">
@@ -319,18 +262,11 @@ export function Workspace() {
             Code<span className="brand-light">Defense</span>
           </span>
         </button>
-        <span className="nav-divider" />
-        <span className="topbar-label">C++ ORAL EXAM PRACTICE</span>
+        <span className="badge violet">FREE EDITION</span>
+        <span className="topbar-label">LOCAL C++ PRACTICE</span>
         <nav className="desktop-nav" aria-label="Main navigation">
-          <button className={view === 'editor' ? 'active' : ''} onClick={() => navigate('editor')}>
-            Practice
-          </button>
-          <button
-            className={view === 'history' ? 'active' : ''}
-            onClick={() => navigate('history')}
-          >
-            History
-          </button>
+          <button onClick={() => navigate('editor')}>Practice</button>
+          <button onClick={() => navigate('history')}>History</button>
           <button onClick={() => navigate('how')}>How it works</button>
         </nav>
         <button className="btn secondary compact top-start" onClick={() => navigate('editor')}>
@@ -347,19 +283,24 @@ export function Workspace() {
       </header>
       {navOpen && (
         <nav className="mobile-nav" aria-label="Mobile navigation">
-          <button onClick={() => navigate('editor')}>Practice</button>
-          <button onClick={() => navigate('history')}>History</button>
-          <button onClick={() => navigate('how')}>How it works</button>
-          <button onClick={() => navigate('privacy')}>Privacy</button>
+          {(['editor', 'history', 'how', 'privacy'] as View[]).map((v) => (
+            <button key={v} onClick={() => navigate(v)}>
+              {v === 'editor'
+                ? 'Practice'
+                : v === 'how'
+                  ? 'How it works'
+                  : v[0].toUpperCase() + v.slice(1)}
+            </button>
+          ))}
         </nav>
       )}
-      <main id="main" ref={main} tabIndex={-1}>
+      <main id="main" tabIndex={-1}>
         {storageWarning && <div className="notice warning global-notice">{storageWarning}</div>}
         {error && (
           <div className="error-banner global-notice" role="alert">
             <AlertCircle size={18} />
             <span>{error}</span>
-            <button aria-label="Dismiss error" className="icon-btn" onClick={() => setError('')}>
+            <button className="icon-btn" aria-label="Dismiss error" onClick={() => setError('')}>
               <X size={16} />
             </button>
           </div>
@@ -374,14 +315,14 @@ export function Workspace() {
           <>
             <Home
               onStart={() => navigate('editor')}
-              onDemo={() => demo()}
+              onDemo={() => void analyze(EXAMPLES[0].code, EXAMPLES[0].name)}
               onHow={() => navigate('how')}
             />
             {history.length > 0 && (
               <div className="content resume-strip">
                 <History size={20} />
-                <span>Your last session is saved on this browser.</span>
-                <button className="btn secondary" onClick={() => void resume(history[0])}>
+                <span>Your last practice is saved on this browser.</span>
+                <button className="btn secondary" onClick={() => persist(history[0])}>
                   Resume / Review
                   <ArrowRight size={16} />
                 </button>
@@ -391,20 +332,15 @@ export function Workspace() {
         )}
         {view === 'editor' && (
           <div className="content editor-page">
-            <div className="breadcrumbs">
-              WORKSPACE
-              <ChevronRight size={12} />
-              <span>YOUR SOURCE CODE</span>
-            </div>
             <div className="page-heading">
               <div>
                 <p className="eyebrow">01 / BRING YOUR CODE</p>
                 <h1>Start with what you wrote.</h1>
-                <p className="muted">Your next TA question is already hiding in your code.</p>
+                <p className="muted">Real syntax. Local analysis. No account or API key.</p>
               </div>
               <span className="badge">
                 <ShieldCheck size={13} />
-                Never compiled or executed
+                Never uploaded or executed
               </span>
             </div>
             <div className="editor-grid">
@@ -419,13 +355,7 @@ export function Workspace() {
                       <Upload size={14} />
                       Upload
                     </button>
-                    <button
-                      className="toolbar-button"
-                      onClick={() => {
-                        setCode(DEMOS[0].code);
-                        setContext({ ...emptyContext, title: DEMOS[0].name });
-                      }}
-                    >
+                    <button className="toolbar-button" onClick={() => setCode(EXAMPLES[0].code)}>
                       Example
                     </button>
                     <button
@@ -433,10 +363,7 @@ export function Workspace() {
                       title="Clear code"
                       aria-label="Clear code"
                       onClick={() => {
-                        if (
-                          !code ||
-                          window.confirm('Clear the editor? This replaces your current draft.')
-                        )
+                        if (!code || window.confirm('Clear your current source draft?'))
                           setCode('');
                       }}
                     >
@@ -446,16 +373,14 @@ export function Workspace() {
                 </div>
                 <input
                   ref={upload}
-                  aria-label="Upload C++ source file"
                   type="file"
                   accept=".cpp,.txt"
                   hidden
+                  aria-label="Upload C++ source file"
                   onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file)
-                      void run('Reading source file…', async () =>
-                        setCode(await readSourceFile(file, status?.maxCode)),
-                      );
+                    const f = e.target.files?.[0];
+                    if (f)
+                      void run('Reading local file…', async () => setCode(await readSourceFile(f)));
                     e.target.value = '';
                   }}
                 />
@@ -466,46 +391,29 @@ export function Workspace() {
                 )}
                 <CodeEditor value={code} onChange={setCode} />
                 <div className="editor-status">
-                  <span>C++ · UTF-8 · text only</span>
-                  <span className={code.length > (status?.maxCode || 30000) ? 'danger-text' : ''}>
-                    {code.length.toLocaleString()} / {(status?.maxCode || 30000).toLocaleString()}{' '}
-                    characters
+                  <span>C++11 · UTF-8 · text only</span>
+                  <span className={code.length > 30000 ? 'danger-text' : ''}>
+                    {code.length.toLocaleString()} / 30,000 characters
                   </span>
                 </div>
                 <p className="small muted editor-caption">
-                  .cpp / .txt · 120 KB maximum · 1,500 lines · Tab moves focus for keyboard
-                  navigation
+                  .cpp / .txt · 120 KB maximum · 1,500 lines · Tab moves focus
                 </p>
               </section>
               <aside className="context-panel">
-                <div className="panel">
-                  <p className="eyebrow">MAKE IT YOUR LAB</p>
-                  <h2>A little context helps.</h2>
-                  <p className="muted small">
-                    Optional. Leave these blank and we’ll work from your source.
+                <section className="panel">
+                  <p className="eyebrow">YOUR LAB NOTES · OPTIONAL</p>
+                  <h2>A little context helps you.</h2>
+                  <p className="small muted">
+                    Saved with your report. These notes do not introduce concepts that are absent
+                    from the parsed source.
                   </p>
-                  <label>
-                    C++ standard
-                    <select
-                      value={context.standard}
-                      onChange={(e) =>
-                        setContext({
-                          ...context,
-                          standard: e.target.value as AssignmentContext['standard'],
-                        })
-                      }
-                    >
-                      {['C++11', 'C++14', 'C++17', 'C++20', 'C++23'].map((v) => (
-                        <option key={v}>{v}</option>
-                      ))}
-                    </select>
-                  </label>
                   <label>
                     Lab assignment title
                     <input
-                      maxLength={150}
-                      placeholder="e.g. Lab 04 · Digit operations"
                       value={context.title}
+                      maxLength={150}
+                      placeholder="e.g. Armstrong number"
                       onChange={(e) => setContext({ ...context, title: e.target.value })}
                     />
                   </label>
@@ -514,7 +422,6 @@ export function Workspace() {
                     <textarea
                       rows={3}
                       maxLength={2000}
-                      placeholder="What should the program do?"
                       value={context.requirements}
                       onChange={(e) => setContext({ ...context, requirements: e.target.value })}
                     />
@@ -523,7 +430,6 @@ export function Workspace() {
                     Topics taught in class
                     <input
                       maxLength={1000}
-                      placeholder="Loops, functions, arrays…"
                       value={context.topics}
                       onChange={(e) => setContext({ ...context, topics: e.target.value })}
                     />
@@ -532,161 +438,140 @@ export function Workspace() {
                     Teacher’s restrictions
                     <input
                       maxLength={1000}
-                      placeholder="e.g. No recursion"
                       value={context.restrictions}
                       onChange={(e) => setContext({ ...context, restrictions: e.target.value })}
                     />
                   </label>
-                </div>
+                  <p className="small muted">
+                    Reference explanations use C++11. Parsing alone does not check every C++11
+                    semantic rule.
+                  </p>
+                </section>
                 <div className="aside-note">
                   <Lightbulb size={18} />
                   <p>
-                    Bring a program you want to understand. You don’t need a perfect solution to
-                    start learning.
+                    You do not need a perfect solution to begin learning. Repair syntax diagnostics
+                    before the interview.
                   </p>
                 </div>
               </aside>
             </div>
             <div className="panel analyze-bar">
               <div>
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={consent}
-                    onChange={(e) => setConsent(e.target.checked)}
-                  />
-                  <span>
-                    I agree to send this code and context to OpenAI when I request live analysis.
-                  </span>
-                </label>
-                <p className="muted small">
-                  Temporary live session state is held in Redis for up to 24 hours.{' '}
-                  <button className="text-button" onClick={() => navigate('privacy')}>
-                    Privacy details
-                  </button>
+                <b>Everything happens in this browser.</b>
+                <p className="small muted">
+                  Tree-sitter WebAssembly and the question library are bundled with the site. No
+                  external AI service is called.
                 </p>
-                {status && !status.live && (
-                  <p className="small warning-text">
-                    Live AI is not configured. You can explore the predefined demo below.
-                  </p>
-                )}
-                {needsChallenge && status?.live && (
-                  <SecurityCheck key={challengeKey} onToken={setToken} siteKey={status?.siteKey} />
-                )}
               </div>
               <button
                 className="btn primary large"
-                disabled={
-                  Boolean(busy) ||
-                  !code.trim() ||
-                  !consent ||
-                  !liveAllowed ||
-                  code.length > (status?.maxCode || 30000)
-                }
+                disabled={Boolean(busy) || !code.trim() || code.length > 30000}
                 onClick={() => void analyze()}
               >
-                <Sparkles size={17} />
-                Analyze My Code
+                Analyze Locally
                 <ArrowRight size={17} />
               </button>
             </div>
             <div className="demo-choice">
-              <span className="muted small">
-                Want a guided preview? Demo content uses built-in code, not your editor.
-              </span>
-              {DEMOS.map((d, i) => (
-                <button key={d.name} className="btn ghost" onClick={() => demo(i)}>
-                  Try {d.name}
+              {EXAMPLES.map((example) => (
+                <button
+                  key={example.name}
+                  className="btn ghost"
+                  onClick={() => {
+                    setCode(example.code);
+                    setContext({ ...emptyContext, title: example.name });
+                  }}
+                >
+                  Load {example.name}
                   <ArrowUpRight size={14} />
                 </button>
               ))}
             </div>
           </div>
         )}
-        {view === 'analysis' && session && (
+        {view === 'analysis' && analysis && (
           <div className="content">
-            <div className="breadcrumbs">
-              SOURCE RECEIVED
-              <ChevronRight size={12} />
-              <span>CODE UNDERSTANDING</span>
-            </div>
             <div className="page-heading">
               <div>
-                <p className="eyebrow">02 / UNDERSTAND THE TERRAIN</p>
+                <p className="eyebrow">02 / KNOW THE TERRAIN</p>
                 <h1>Let’s see what’s in your code.</h1>
-                <p className="muted">A source-grounded starting point for your interview.</p>
+                <p className="muted">Parsed locally with Tree-sitter C++.</p>
               </div>
-              <button className="btn secondary" onClick={editor}>
+              <button className="btn secondary" onClick={() => navigate('editor')}>
                 <ArrowLeft size={15} />
                 Edit code
               </button>
             </div>
-            <div className={`notice ${isDemo ? 'demo-notice' : ''}`}>
-              {isDemo
-                ? 'DEMO · Curated report, predefined questions, simulated keyword grading. Demo modes share the same question bank.'
-                : 'AI interpretation · Source quotes are checked for exact line matches; concepts, purpose, and potential issues still need your judgment.'}{' '}
-              Code has not been compiled or executed.
+            <div className="notice">
+              Syntax evidence is taken from your actual source. This tool has not compiled,
+              executed, or proved the program correct. Comments and strings are source data, never
+              instructions.
             </div>
             <div className="analysis-grid">
               <div>
                 <section className="panel">
-                  <div className="row between">
-                    <h2>Code Understanding Report</h2>
-                    <span className="badge violet">{session.analysis.difficulty}</span>
-                  </div>
-                  <p className="eyebrow report-label">WHAT IT APPEARS TO DO · INTERPRETATION</p>
-                  <p className="summary-text">{session.analysis.summary}</p>
-                  <h3>
-                    Detected concepts{' '}
-                    <span className="muted small">· AI interpretation with source evidence</span>
-                  </h3>
+                  <h2>Code Understanding Report</h2>
+                  <p>{analysis.summary}</p>
+                  {analysis.diagnostics.length > 0 && (
+                    <div className="notice warning" role="alert">
+                      <h3>Repair syntax before practicing</h3>
+                      <ul>
+                        {analysis.diagnostics.map((d, i) => (
+                          <li key={i}>
+                            Line {d.line}, column {d.column}: {d.message}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <h3>Detected constructs</h3>
                   <div className="chips">
-                    {session.analysis.concepts.map((c) => (
-                      <span className="badge" key={c.name}>
-                        {c.name}
+                    {[...new Set(analysis.constructs.map((c) => c.kind))].map((c) => (
+                      <span className="badge" key={c}>
+                        {c}
                       </span>
                     ))}
                   </div>
                   <div className="evidence-list">
-                    {session.analysis.concepts.map((c) => (
-                      <details key={c.name}>
+                    {[...new Set(analysis.constructs.map((c) => c.kind))].map((kind) => (
+                      <details key={kind}>
                         <summary>
-                          {c.name}
+                          {kind}
                           <span>
-                            Lines {c.evidence.start}–{c.evidence.end}
+                            {analysis.constructs.filter((c) => c.kind === kind).length}{' '}
+                            occurrence(s)
                           </span>
                         </summary>
-                        <p className="small muted">
-                          Verified quote from your source. This does not prove semantic correctness.
-                        </p>
-                        <pre>{c.evidence.snippet}</pre>
+                        {analysis.constructs
+                          .filter((c) => c.kind === kind)
+                          .slice(0, 8)
+                          .map((c, i) => (
+                            <div key={i}>
+                              <p className="small accent">
+                                Lines {c.evidence.start}–{c.evidence.end} · {c.name}
+                              </p>
+                              {c.detail && <p className="small muted">{c.detail}</p>}
+                              <pre>{c.evidence.snippet}</pre>
+                            </div>
+                          ))}
+                        {analysis.constructs.filter((c) => c.kind === kind).length > 8 && (
+                          <p className="small muted">
+                            First eight occurrences shown; all detected occurrences are available
+                            for question selection.
+                          </p>
+                        )}
                       </details>
                     ))}
                   </div>
                 </section>
                 <section className="panel review-panel">
-                  <h2>Sections worth reviewing</h2>
-                  {session.analysis.review.map((r, i) => (
-                    <div key={i}>
-                      <p>{r.explanation}</p>
-                      <p className="small accent">
-                        Lines {r.evidence.start}–{r.evidence.end}
-                      </p>
-                      <pre>{r.evidence.snippet}</pre>
-                    </div>
-                  ))}
-                  <h3>Potential problem areas</h3>
-                  {session.analysis.risks.length ? (
-                    <ul className="risk-list">
-                      {session.analysis.risks.map((r, i) => (
-                        <li key={i}>{r}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="muted">
-                      No specific issues identified. This is not proof of correctness.
-                    </p>
-                  )}
+                  <h2>What this analysis can tell you</h2>
+                  <ul>
+                    {analysis.limitations.map((l) => (
+                      <li key={l}>{l}</li>
+                    ))}
+                  </ul>
                 </section>
               </div>
               <aside className="panel interview-config">
@@ -716,9 +601,9 @@ export function Workspace() {
                       setConfig({ ...config, count: Number(e.target.value) as 5 | 10 | 15 })
                     }
                   >
-                    {[5, 10, 15].map((v) => (
-                      <option key={v} value={v}>
-                        {v} questions
+                    {[5, 10, 15].map((n) => (
+                      <option key={n} value={n}>
+                        {n} questions
                       </option>
                     ))}
                   </select>
@@ -735,67 +620,48 @@ export function Workspace() {
                       'Standard TA Interview',
                       'Explain My Code',
                       'Debugging Challenge',
-                      'Rapid Fire',
+                      'Quick Multiple Choice',
                     ].map((v) => (
                       <option key={v}>{v}</option>
                     ))}
                   </select>
                 </label>
                 <p className="small muted">
-                  {config.mode === 'Standard TA Interview'
-                    ? 'Concepts, tracing, and edge cases in one interview.'
-                    : config.mode === 'Explain My Code'
-                      ? 'Focus on why each choice and statement works.'
-                      : config.mode === 'Debugging Challenge'
-                        ? 'Reason about possible bugs and hypothetical code changes.'
-                        : 'Short prompts to practice clear, concise explanations.'}
+                  {config.mode === 'Quick Multiple Choice'
+                    ? 'Reviewed answer keys provide automatic grading.'
+                    : 'Written responses use reference checklists and your own self-assessment. No AI or keyword grading.'}
                 </p>
-                {config.mode === 'Rapid Fire' && (
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={config.timer}
-                      onChange={(e) => setConfig({ ...config, timer: e.target.checked })}
-                    />
-                    Show an elapsed timer (no score penalty)
-                  </label>
-                )}
-                <div className="config-note">
-                  <MessageSquare size={17} />
-                  <span>
-                    One question at a time.
-                    <br />
-                    At most one follow-up each.
-                  </span>
-                </div>
-                {!isDemo && (
-                  <>
-                    <p className="muted small">
-                      Default daily allowance: 25 provider requests per browser identity. A
-                      15-question interview with many follow-ups may reach the cap. Progress remains
-                      saved.
-                    </p>
-                    <SecurityCheck
-                      key={challengeKey}
-                      onToken={setToken}
-                      siteKey={status?.siteKey}
-                    />
-                  </>
+                <label>
+                  Question-order seed (optional)
+                  <input
+                    value={config.seed}
+                    maxLength={80}
+                    placeholder="Blank for a new random order"
+                    onChange={(e) => setConfig({ ...config, seed: e.target.value })}
+                  />
+                </label>
+                {pool > 0 && pool < config.count && (
+                  <p className="notice small">
+                    Only {pool} distinct reviewed templates fit this source and difficulty. The
+                    interview will use {pool}, without padding unrelated questions.
+                  </p>
                 )}
                 <button
                   className="btn primary full"
-                  disabled={Boolean(busy) || (!isDemo && !liveAllowed)}
-                  onClick={() => void start()}
+                  disabled={Boolean(busy) || !pool || analysis.diagnostics.length > 0}
+                  onClick={begin}
                 >
                   Begin Interview
                   <ArrowRight size={17} />
                 </button>
-                <p className="small muted center">Practice estimates. No official grades.</p>
+                <p className="small muted center">
+                  At most one optional follow-up per main question.
+                </p>
               </aside>
             </div>
           </div>
         )}
-        {view === 'interview' && session && current && (
+        {view === 'interview' && session && q && (
           <div className="interview-page">
             <div className="interview-heading">
               <button className="text-button" onClick={editor}>
@@ -805,20 +671,20 @@ export function Workspace() {
               <div className="row">
                 <span className="badge">{session.config.difficulty}</span>
                 <span className="small muted">
-                  {isDemo ? 'DEMO · SIMULATED' : 'LIVE AI PRACTICE'}
+                  {mc ? 'AUTOMATIC MC GRADING' : 'WRITTEN · SELF-ASSESSMENT'}
                 </span>
               </div>
             </div>
             <div className="interview-progress">
               <div>
                 <span>
-                  QUESTION {Math.min(session.index + 1, session.total)} OF {session.total}
+                  QUESTION {session.index + 1} OF {session.questions.length}
                 </span>
-                <span>{session.records.length} main answers recorded</span>
+                <span>{session.records.length} main responses recorded</span>
               </div>
               <progress
                 value={session.records.length}
-                max={session.total}
+                max={session.questions.length}
                 aria-label="Interview progress"
               />
             </div>
@@ -837,13 +703,12 @@ export function Workspace() {
                     <FileCode2 size={16} />
                     Submitted source
                   </span>
-                  <span className="small muted">READ ONLY · {session.context.standard}</span>
+                  <span className="small muted">READ ONLY · C++11</span>
                 </div>
-                <CodeEditor value={session.code} readOnly highlight={current.evidence} />
+                <CodeEditor value={session.code} readOnly highlight={q.evidence} />
                 <div className="source-footnote">
                   <span className="focus-square" />
-                  Lines {current.evidence.start}–{current.evidence.end} in focus · Code is not
-                  executed
+                  Lines {q.evidence.start}–{q.evidence.end} · Parsed, not executed
                 </div>
               </section>
               <section
@@ -855,89 +720,79 @@ export function Workspace() {
                   <div>
                     <b>Your practice TA</b>
                     <p className="small muted">
-                      {session.stage === 'followup'
-                        ? 'FOLLOW-UP · ONE LEVEL ONLY'
-                        : current.concept.toUpperCase()}
+                      {isFollow ? 'ONE OPTIONAL FOLLOW-UP' : q.concept.toUpperCase()}
                     </p>
                   </div>
-                  {session.config.timer && (
-                    <span className="timer">
-                      <Clock size={13} />
-                      {elapsed}s
-                    </span>
-                  )}
                 </div>
-                <h1 className="question-title">{current.text}</h1>
+                <h1 className="question-title">{displayQuestion}</h1>
                 <p className="small muted">
-                  Source lines {current.evidence.start}–{current.evidence.end} ·{' '}
-                  {session.stage === 'followup'
-                    ? 'Clarify your reasoning.'
-                    : 'Take a breath. Explain it in your own words.'}
+                  Source lines {q.evidence.start}–{q.evidence.end} · Explain the reasoning, not just
+                  the syntax.
                 </p>
-                {isDemo && (
-                  <div className="notice demo-notice small">
-                    Demo uses predefined questions and keyword-based sample feedback. It cannot
-                    judge the meaning of your answer.
-                  </div>
-                )}
-                {!showFeedback && (
+                {!feedback && (
                   <>
-                    <label className="answer-label">
-                      Your answer <span>English or 繁體中文</span>
-                      <textarea
-                        value={answer}
-                        maxLength={4000}
-                        rows={7}
-                        placeholder="I used this because…"
-                        onChange={(e) => setAnswer(e.target.value)}
-                      />
-                    </label>
-                    <div className="answer-meta">
-                      <span>Clear reasoning beats perfect wording.</span>
-                      <span>{answer.length}/4000</span>
-                    </div>
-                    <VoiceInput
-                      disabled={Boolean(busy)}
-                      onTranscript={(text) =>
-                        setAnswer((previous) =>
-                          ((previous ? previous + ' ' : '') + text).slice(0, 4000),
-                        )
-                      }
-                    />
+                    {mc ? (
+                      <fieldset className="choice-list">
+                        <legend>Choose one answer</legend>
+                        {q.choices.map((choice, i) => (
+                          <label key={i} className={session.draftChoice === i ? 'selected' : ''}>
+                            <input
+                              type="radio"
+                              name="answer-choice"
+                              value={i}
+                              checked={session.draftChoice === i}
+                              onChange={() => setSession({ ...session, draftChoice: i })}
+                            />
+                            <span>{choice}</span>
+                          </label>
+                        ))}
+                      </fieldset>
+                    ) : (
+                      <>
+                        <label className="answer-label">
+                          Your answer <span>English or 繁體中文</span>
+                          <textarea
+                            rows={7}
+                            value={session.draft}
+                            maxLength={4000}
+                            placeholder="I think this works because…"
+                            onChange={(e) => setSession({ ...session, draft: e.target.value })}
+                          />
+                        </label>
+                        <p className="small muted">
+                          Your explanation is not automatically graded. You will compare it with a
+                          reviewed reference.
+                        </p>
+                      </>
+                    )}
                     {session.hint && (
                       <div className="hint-box">
                         <Lightbulb size={17} />
-                        <p>{session.hint}</p>
+                        <p>{q.hint}</p>
                       </div>
-                    )}
-                    {!isDemo && (
-                      <SecurityCheck
-                        key={challengeKey}
-                        onToken={setToken}
-                        siteKey={status?.siteKey}
-                      />
                     )}
                     <div className="question-actions">
                       <button
                         className="btn primary"
-                        disabled={Boolean(busy) || !answer.trim() || (!isDemo && !liveAllowed)}
-                        onClick={() => void action('answer')}
+                        disabled={
+                          Boolean(busy) ||
+                          (mc ? session.draftChoice === null : !session.draft.trim())
+                        }
+                        onClick={() => action(() => submit(session))}
                       >
-                        Submit Answer
+                        {mc ? 'Check Answer' : 'Compare My Answer'}
                         <ArrowUpRight size={16} />
                       </button>
                       <button
                         className="btn ghost"
-                        disabled={Boolean(busy)}
-                        onClick={() => void action('hint')}
+                        onClick={() => setSession({ ...session, hint: true })}
                       >
                         <Lightbulb size={16} />
                         Hint
                       </button>
                       <button
                         className="btn ghost"
-                        disabled={Boolean(busy)}
-                        onClick={() => void action('skip')}
+                        onClick={() => action(() => submit(session, true))}
                       >
                         <SkipForward size={16} />
                         Skip
@@ -945,85 +800,74 @@ export function Workspace() {
                     </div>
                   </>
                 )}
-                {showFeedback && last && (
+                {feedback && record && (
                   <div className="feedback" aria-live="polite">
                     <div className="feedback-score">
                       <CheckCircle2 size={19} />
-                      <b>
-                        {last.followUp ? last.followUp.feedback.score : last.feedback.score}
-                        <span>/10</span>
+                      <b className="result-title">
+                        {skipped
+                          ? 'Skipped'
+                          : mc
+                            ? record.choice === q.correctIndex
+                              ? 'Correct'
+                              : 'Not correct'
+                            : 'Compare & reflect'}
                       </b>
-                      <span>
-                        {last.skipped || last.followUp?.skipped
-                          ? 'Skipped · review and retry'
-                          : 'Practice assessment'}
-                      </span>
                     </div>
-                    {(() => {
-                      const f = last.followUp?.feedback || last.feedback;
-                      return (
-                        <>
-                          <div className="rubric-grid">
-                            <div>
-                              <b>{f.correctness}/4</b>
-                              <span>Correctness</span>
-                            </div>
-                            <div>
-                              <b>{f.understanding}/4</b>
-                              <span>Understanding</span>
-                            </div>
-                            <div>
-                              <b>{f.reasoning}/2</b>
-                              <span>Consequences</span>
-                            </div>
-                          </div>
-                          <p>{f.explanation}</p>
-                          {f.missing.length > 0 && (
-                            <>
-                              <h3>Build on this</h3>
-                              <ul>
-                                {f.missing.map((m, i) => (
-                                  <li key={i}>{m}</li>
-                                ))}
-                              </ul>
-                            </>
-                          )}
-                          <h3>A clear answer could be</h3>
-                          <div className="model-answer">{f.modelAnswer}</div>
-                          <details>
-                            <summary>Expected key points &amp; grading rubric</summary>
-                            <ul>
-                              {f.expected.map((p, i) => (
-                                <li key={i}>{p}</li>
-                              ))}
-                            </ul>
-                            <p className="small muted">{f.rubric}</p>
-                          </details>
-                        </>
-                      );
-                    })()}
-                    {last.followUp && (
-                      <p className="small muted">
-                        {last.followUp.skipped
-                          ? `Follow-up skipped · final ${last.finalScore}/10 (initial retained)`
-                          : `Initial ${last.initialScore}/10 · follow-up ${last.followUp.feedback.score}/10 · final ${last.finalScore}/10 (mean)`}
-                      </p>
+                    <p className="notice small">
+                      {mc
+                        ? 'Automatically checked against this template’s answer key.'
+                        : 'Written answer: not automatically graded. Compare the reasoning with each point below, then choose your own assessment.'}
+                    </p>
+                    {mc && !skipped && <p>Your choice: {q.choices[record.choice!]}</p>}
+                    <h3>Reference explanation</h3>
+                    <div className="model-answer">{reference}</div>
+                    <h3>Expected points to check</h3>
+                    <ul>
+                      {expected?.map((p, i) => (
+                        <li key={i}>{p}</li>
+                      ))}
+                    </ul>
+                    {!mc && !skipped && (
+                      <fieldset className="assessment-list">
+                        <legend>Your self-assessment</legend>
+                        {assessments.map(([value, label]) => (
+                          <button
+                            key={value}
+                            className={`btn ${selectedAssessment === value ? 'primary' : 'secondary'}`}
+                            aria-pressed={selectedAssessment === value}
+                            onClick={() => action(() => assess(session, value))}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </fieldset>
+                    )}
+                    {!isFollow && q.followUp && !record.followUp && (
+                      <button
+                        className="btn secondary full"
+                        disabled={!canAdvance(session)}
+                        onClick={() => action(() => followUp(session))}
+                      >
+                        Practice one follow-up
+                        <ArrowRight size={16} />
+                      </button>
                     )}
                     <button
                       className="btn primary full"
-                      disabled={Boolean(busy)}
-                      onClick={() => void action('next')}
+                      disabled={!canAdvance(session)}
+                      onClick={() => action(() => advance(session))}
                     >
-                      {session.index + 1 >= session.total
-                        ? 'Continue / View Report'
-                        : 'Continue to Next Question'}
+                      {session.index + 1 === session.questions.length
+                        ? 'View Practice Report'
+                        : 'Next Question'}
                       <ArrowRight size={17} />
                     </button>
                   </div>
                 )}
                 <div className="session-save">
                   <ShieldCheck size={13} />
-                  Saved on this browser. Live sessions can resume for 24 hours.
+                  Saved on this browser · source and answers stay local
                 </div>
               </section>
             </div>
@@ -1032,8 +876,8 @@ export function Workspace() {
         {view === 'report' && session && (
           <PracticeReport
             session={session}
-            onRetry={() => void retry()}
-            onNew={newInterview}
+            onRetry={() => action(() => retryWeak(session))}
+            onNew={fresh}
             onEditor={editor}
           />
         )}
@@ -1043,7 +887,7 @@ export function Workspace() {
               <div>
                 <p className="eyebrow">YOUR PRACTICE LOG</p>
                 <h1>Understanding takes practice.</h1>
-                <p className="muted">Your 15 most recent sessions, stored on this browser.</p>
+                <p className="muted">Up to 15 recent Free Edition sessions on this browser.</p>
               </div>
               <button className="btn primary" onClick={() => navigate('editor')}>
                 <Plus size={16} />
@@ -1051,78 +895,126 @@ export function Workspace() {
               </button>
             </div>
             <div className="notice">
-              History stays on this device and can be lost if browser storage is cleared. Source and
-              answered-question feedback are included in exports. Live server state expires after 24
-              hours.
+              Export a backup before clearing browser storage. Self-assessment and multiple-choice
+              records remain separate. Imported files are validated before any history is changed.
             </div>
-            {history.length ? (
-              <>
-                <div className="actions history-actions">
+            <div className="actions history-actions">
+              <button
+                className="btn secondary"
+                disabled={!history.length}
+                onClick={() => downloadJson(exportHistory(), 'codedefense-free-history.json')}
+              >
+                <Download size={16} />
+                Export History
+              </button>
+              <button className="btn secondary" onClick={() => historyUpload.current?.click()}>
+                <FolderInput size={16} />
+                Import History
+              </button>
+              <button className="btn ghost danger-text" disabled={!history.length} onClick={clear}>
+                <Trash2 size={16} />
+                Clear All History
+              </button>
+            </div>
+            <input
+              type="file"
+              hidden
+              ref={historyUpload}
+              accept=".json"
+              aria-label="Import history file"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file)
+                  void run('Validating local history…', async () => {
+                    if (file.size > 5 * 1024 * 1024)
+                      throw new Error('History files must be at most 5 MB.');
+                    importHistory(await file.text());
+                    setHistory(loadHistory());
+                  });
+                e.target.value = '';
+              }}
+            />
+            {legacy.length > 0 && (
+              <div className="panel">
+                <h2>Earlier paid-version records</h2>
+                <p>
+                  Preserved separately; legacy AI/demo scores are not mixed with Free Edition
+                  results.
+                </p>
+                <div className="actions">
                   <button
                     className="btn secondary"
-                    onClick={() => downloadJson(history, 'codedefense-progress.json')}
+                    onClick={() => downloadJson(legacy, 'codedefense-legacy-history.json')}
                   >
-                    <Download size={16} />
-                    Export Progress
+                    Export Legacy History
                   </button>
                   <button
-                    className="btn ghost danger-text"
-                    onClick={() => void removeHistory()}
-                    disabled={Boolean(busy)}
+                    className="btn ghost"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          'Delete the legacy paid-version history and draft from this browser?',
+                        )
+                      ) {
+                        localStorage.removeItem('codedefense-history-v1');
+                        localStorage.removeItem('codedefense-draft-v1');
+                        localStorage.removeItem('codedefense-active-v1');
+                        setLegacy([]);
+                      }
+                    }}
                   >
-                    <Trash2 size={16} />
-                    Delete History
+                    Delete Legacy History
                   </button>
                 </div>
-                <div className="history-list">
-                  {history.map((s) => {
-                    const report = summarize(s.records, s.total);
-                    return (
-                      <article className="panel history-card" key={s.id}>
-                        <span className="history-icon">
-                          <FileCode2 size={23} />
-                        </span>
-                        <div className="history-details">
-                          <h2>{s.context.title || 'Untitled C++ practice'}</h2>
-                          <p className="small muted">
-                            {new Date(s.createdAt).toLocaleString()} · {s.demo ? 'Demo' : 'Live AI'}{' '}
-                            ·{' '}
-                            {s.stage === 'complete'
-                              ? 'Complete'
-                              : s.stage === 'analysis'
-                                ? 'Analyzed'
-                                : 'In progress'}
-                          </p>
-                          <p className="small muted">
-                            Practice next:{' '}
-                            {report.weak.join(', ') ||
-                              'Answer more questions to discover weak topics.'}
-                          </p>
-                        </div>
-                        <strong className="history-score">
-                          {s.stage === 'complete' ? `${report.overall}%` : '—'}
-                        </strong>
-                        <button
-                          className="btn secondary"
-                          disabled={Boolean(busy)}
-                          onClick={() => void resume(s)}
-                        >
-                          {s.stage === 'complete' ? 'Review' : 'Resume'}
-                          <ArrowRight size={15} />
-                        </button>
-                      </article>
-                    );
-                  })}
-                </div>
-              </>
+              </div>
+            )}
+            {history.length ? (
+              <div className="history-list">
+                {history.map((s) => {
+                  const summary = summarize(s);
+                  return (
+                    <article className="panel history-card" key={s.id}>
+                      <span className="history-icon">
+                        <FileCode2 size={23} />
+                      </span>
+                      <div className="history-details">
+                        <h2>{s.context.title || 'Untitled C++ practice'}</h2>
+                        <p className="small muted">
+                          {new Date(s.createdAt).toLocaleString()} ·{' '}
+                          {s.stage === 'complete' ? 'Complete' : 'In progress'}
+                        </p>
+                        <p className="small muted">
+                          {summary.autoScore === null
+                            ? `${summary.complete} understood / ${summary.partial} partial / ${summary.notYet} not yet (self-assessed)`
+                            : `MC: ${summary.autoCorrect}/${summary.autoTotal} correct`}{' '}
+                          · Practice next: {summary.weak.join(', ') || 'No weak topics recorded'}
+                        </p>
+                      </div>
+                      <button className="btn secondary" onClick={() => persist(s)}>
+                        {s.stage === 'complete' ? 'Review' : 'Resume'}
+                        <ArrowRight size={15} />
+                      </button>
+                      <button
+                        className="icon-btn"
+                        aria-label={`Delete session ${s.context.title || s.id}`}
+                        onClick={() => deleteOne(s.id)}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
             ) : (
               <div className="empty-state">
                 <History size={38} />
                 <h2>Your first practice starts here.</h2>
-                <p className="muted">Bring your code or explore a guided demo.</p>
-                <button className="btn primary" onClick={() => demo()}>
-                  Try Demo
-                  <ArrowRight size={16} />
+                <p className="muted">Bring your source or try an example.</p>
+                <button
+                  className="btn primary"
+                  onClick={() => void analyze(EXAMPLES[0].code, EXAMPLES[0].name)}
+                >
+                  Try Example
                 </button>
               </div>
             )}
@@ -1130,101 +1022,51 @@ export function Workspace() {
         )}
         {view === 'privacy' && (
           <div className="content prose-page">
-            <p className="eyebrow">CLEAR EXPECTATIONS</p>
+            <p className="eyebrow">LOCAL FIRST · FREE EDITION</p>
             <h1>Your code, your choice.</h1>
-            <section className="panel">
-              <h2>What happens to your data</h2>
-              <p>
-                When you request live analysis or answer evaluation, your source, assignment
-                context, question, and relevant answers are sent to OpenAI. AI requests use store:
-                false; this does not override the provider’s own retention and abuse-monitoring
-                policies.
-              </p>
-              <p>
-                Live session state, including source and private grading keys, is temporarily stored
-                in Upstash Redis for up to 24 hours from creation. Usage counters and aggregate
-                token totals are retained briefly for abuse and cost control. A signed browser
-                cookie identifies your anonymous session; hashed IP identifiers support shared
-                limits.
-              </p>
-              <p>
-                Practice history and editor drafts are saved locally on this device. Anyone with
-                access to this browser profile may be able to read them. Exports contain your source
-                and answers. Clearing browser storage removes local history and may prevent
-                live-session recovery.
-              </p>
-              <p>
-                Raw code and answers are not intentionally written to application server logs.
-                Hosting and service providers may still process request metadata. The application
-                never compiles or executes student code.
-              </p>
-              <h2>Delete your data</h2>
-              <p>
-                Use Delete History to remove local history and drafts and request deletion of
-                reachable live sessions. If a server session cannot be reached, it expires
-                automatically within 24 hours. Usage counters remain until their short expiry to
-                prevent quota bypass.
-              </p>
-              <button className="btn secondary" onClick={() => navigate('history')}>
-                Manage History
-                <ArrowRight size={16} />
-              </button>
-              <h2>Learning, not official assessment</h2>
-              <p>
-                CodeDefense is an independent practice tool, not affiliated with National Tsing Hua
-                University. Scores are informal estimates. AI can make mistakes; check explanations
-                against your source and course material. Follow your instructor’s rules when sharing
-                coursework.
-              </p>
-              <p>
-                Demo questions and feedback are predefined and simulated. They never use an AI
-                provider or analyze arbitrary pasted code.
-              </p>
-            </section>
+            <Privacy />
           </div>
         )}
         {view === 'how' && (
           <div className="content prose-page">
-            <p className="eyebrow">A SMALL REHEARSAL. A CLEARER EXPLANATION.</p>
+            <p className="eyebrow">SOURCE-GROUNDED PRACTICE</p>
             <h1>Make your logic speak.</h1>
             <section className="panel">
-              <h2>1. Bring your source</h2>
+              <h2>1. Parse your own source</h2>
               <p>
-                Paste C++ or upload UTF-8 .cpp / .txt text. Add optional lab context and choose your
-                C++ standard. Code is read, never executed.
+                Paste or upload C++11 code. A bundled Tree-sitter parser identifies syntax locally.
+                Repair reported syntax errors; syntax parsing does not establish semantic validity
+                or runtime correctness.
               </p>
-              <h2>2. Check the understanding report</h2>
+              <h2>2. Choose a focused interview</h2>
               <p>
-                Review detected concepts and tentative explanations. Expand evidence to see exact
-                source lines. A quote matching the source does not prove an AI interpretation is
-                correct.
+                Pick Beginner, Normal TA, or Strict TA and 5, 10, or 15 questions. A seeded selector
+                chooses distinct reviewed templates tied to constructs actually found in your
+                source. Small programs may support fewer questions; the tool never pads with
+                unrelated concepts.
               </p>
-              <h2>3. Rehearse your demonstration</h2>
+              <h2>3. Explain, then compare</h2>
               <p>
-                Choose 5, 10, or 15 questions and a mode. Explain the reasoning in English or
-                Traditional Chinese. Ask for a hint, skip if stuck, or work through one follow-up.
+                Standard, Explain My Code, and Debugging Challenge use written answers. Read the
+                reference, check the expected points, and mark your understanding. Written answers
+                are never scored by keyword matching or AI.
               </p>
-              <h2>4. Turn feedback into practice</h2>
+              <h2>4. Check objective answers separately</h2>
               <p>
-                Each answer has 4 points for technical correctness, 4 for understanding, and 2 for
-                relevant consequences. A concise complete explanation can score 10. A follow-up
-                produces a final score equal to the mean of the initial and follow-up scores, with
-                both visible.
+                Quick Multiple Choice uses deterministic answer keys. These results stay separate
+                from written self-assessments. One optional, source-supported follow-up is available
+                for relevant templates.
               </p>
+              <h2>5. Keep a study record</h2>
               <p>
-                Review your report, retry questions below 8/10, and print or export your progress.
-                The demo uses illustrative keyword scores and a shared question bank across modes;
-                live AI adapts question selection and feedback.
+                Resume on the same browser, retry weak questions, print to PDF, or export/import
+                history. After a successful online load, cached assets aim to support offline use.
+                No accounts, API credits, database, or paid runtime services are involved.
               </p>
-              <div className="actions">
-                <button className="btn primary" onClick={() => navigate('editor')}>
-                  Start Practicing
-                  <ArrowRight size={16} />
-                </button>
-                <button className="btn secondary" onClick={() => demo()}>
-                  Try Demo
-                </button>
-              </div>
+              <button className="btn primary" onClick={() => navigate('editor')}>
+                Start Practicing
+                <ArrowRight size={16} />
+              </button>
             </section>
           </div>
         )}
@@ -1232,11 +1074,11 @@ export function Workspace() {
       <footer className="footer no-print">
         <span>
           <Braces size={16} />
-          CodeDefense<span className="muted">Learn the why behind your code.</span>
+          CodeDefense<span className="muted">Know your code. Defend your logic.</span>
         </span>
         <div>
-          <button onClick={() => navigate('privacy')}>Privacy &amp; AI usage</button>
-          <span>Independent student project · Not affiliated with NTHU</span>
+          <button onClick={() => navigate('privacy')}>Privacy &amp; local processing</button>
+          <span>Free Edition · Independent of NTHU · No API keys</span>
         </div>
       </footer>
     </div>

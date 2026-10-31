@@ -33,8 +33,8 @@ export function Home({
             <span>Defend your logic.</span>
           </h1>
           <p className="hero-description">
-            You wrote the program. Now make the reasoning yours. Practice a C++ oral exam with an AI
-            teaching assistant that asks about <em>your actual code.</em>
+            You wrote the program. Now make the reasoning yours. Rehearse a C++ oral exam with local
+            syntax analysis and reviewed questions about <em>your actual code.</em>
           </p>
           <div className="actions">
             <button className="btn primary large" onClick={onStart}>
@@ -43,7 +43,7 @@ export function Home({
             </button>
             <button className="btn secondary large" onClick={onDemo}>
               <Terminal size={18} />
-              Try Demo
+              Try Example
             </button>
           </div>
           <div className="hero-assurances">
@@ -57,7 +57,7 @@ export function Home({
             </span>
             <span>
               <Check size={14} />
-              English / 繁體中文
+              Write in English / 繁體中文
             </span>
           </div>
           <div className="student-note">
@@ -79,7 +79,7 @@ export function Home({
               <i />
             </div>
             <span>digit_sum.cpp</span>
-            <span className="badge">DEMO PREVIEW</span>
+            <span className="badge">EXAMPLE PREVIEW</span>
           </div>
           <div className="preview-code">
             <div className="preview-line">
@@ -180,13 +180,13 @@ export function Home({
             n: '02',
             Icon: MessageSquare,
             title: 'Think out loud',
-            text: 'Answer code-specific questions, get hints, and work through one adaptive follow-up.',
+            text: 'Answer code-specific questions, compare reviewed explanations, and practice one optional follow-up.',
           },
           {
             n: '03',
             Icon: ShieldCheck,
             title: 'Leave with a plan',
-            text: 'Review explanations, practice scores, and the concepts to focus on next.',
+            text: 'Review explanations, separate MC results and self-assessments, and the concepts to focus on next.',
           },
         ].map(({ n, Icon, title, text }) => (
           <article className="feature" key={n}>
@@ -202,8 +202,8 @@ export function Home({
       <div className="privacy-strip">
         <ShieldCheck size={17} />
         <p>
-          You choose when code is sent to OpenAI. History stays in your browser. Live session state
-          expires after 24 hours. Code is never executed.
+          Source and answers stay on your device. No accounts, keys, or paid services. History is
+          stored in your browser. Code is never executed.
         </p>
       </div>
     </div>
