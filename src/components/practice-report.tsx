@@ -1,9 +1,8 @@
 'use client';
-import { ArrowLeft, Download, RotateCcw, Printer, Sparkles } from 'lucide-react';
+import { ArrowLeft, Download, RotateCcw, Printer } from 'lucide-react';
 import type { PracticeSession } from '@/lib/schemas';
-import { summarize } from '@/lib/scoring';
+import { summarize } from '@/lib/engine';
 import { downloadJson } from '@/lib/storage';
-
 export function PracticeReport({
   session,
   onRetry,
@@ -15,16 +14,12 @@ export function PracticeReport({
   onNew: () => void;
   onEditor: () => void;
 }) {
-  const report = summarize(session.records, session.total);
-  const strongest = [...session.records]
-    .filter((r) => !r.skipped)
-    .sort((a, b) => b.finalScore - a.finalScore)
-    .slice(0, 2);
+  const s = summarize(session);
   return (
     <div className="report content">
       <div className="page-heading">
         <div>
-          <p className="eyebrow">THE DEBRIEF</p>
+          <p className="eyebrow">THE DEBRIEF · FREE EDITION</p>
           <h1>Your code. Better understood.</h1>
           <p className="muted">
             {session.context.title || 'C++ practice'} ·{' '}
@@ -37,90 +32,84 @@ export function PracticeReport({
         </button>
       </div>
       <div className="notice">
-        {session.demo
-          ? 'Demo report · predefined questions and simulated keyword scores. '
-          : 'AI-generated practice estimates. '}
-        Scores and TA readiness are informal study indicators, never official NTHU grades.
+        Automatic multiple-choice results and written-answer self-assessments are reported
+        separately. These are informal study records, not official grades. Your code was parsed
+        locally, never compiled or executed.
       </div>
-      <div className="report-top">
-        <div className="panel score-panel">
+      <div className="two-col">
+        <section className="panel score-panel">
+          <h2>Automatically graded</h2>
           <div className="score-number">
-            {report.overall}
-            <span>/ 100</span>
+            {s.autoScore === null ? '—' : s.autoScore}
+            <span>{s.autoScore === null ? 'No MC answers' : '/ 100'}</span>
           </div>
-          <span className="badge violet">{report.readiness}</span>
-          <p className="muted small">TA readiness · informal indicator</p>
-        </div>
-        <div className="panel report-stats">
-          {[
-            ['Completed', `${report.completed}/${session.total}`],
-            ['Correct (8–10)', report.correct],
-            ['Partial (4–<8)', report.partial],
-            ['Incorrect (<4)', report.incorrect],
-            ['Skipped', report.skipped],
-          ].map(([label, value]) => (
-            <div key={label}>
-              <b>{value}</b>
-              <span>{label}</span>
-            </div>
-          ))}
-        </div>
+          <p>
+            {s.autoCorrect} correct / {s.autoTotal} recorded multiple-choice questions
+          </p>
+          <p className="muted small">
+            Exact answer-key comparison. Skipped MC questions count as incorrect. Written answers
+            never contribute to this score.
+          </p>
+        </section>
+        <section className="panel">
+          <h2>Written self-assessment</h2>
+          <div className="report-stats">
+            {[
+              ['Understood', s.complete],
+              ['Partially', s.partial],
+              ['Not yet', s.notYet],
+              ['Unassessed', s.unassessed],
+            ].map(([label, n]) => (
+              <div key={label}>
+                <b>{n}</b>
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
+          <p className="muted small">
+            Chosen by you after reviewing the reference. This is not an objective correctness grade.
+          </p>
+        </section>
       </div>
       <div className="two-col">
         <section className="panel">
-          <h2>Build on your strengths</h2>
+          <h2>Concepts practiced</h2>
+          <p>
+            {s.completed} answered / {session.questions.length} main questions · {s.skipped} skipped
+          </p>
           <div className="chips">
-            {report.strong.length ? (
-              report.strong.map((c) => (
-                <span className="badge green" key={c}>
-                  {c}
-                </span>
-              ))
-            ) : (
-              <p className="muted">No consistently strong topics recorded yet.</p>
-            )}
+            {s.concepts.map((c) => (
+              <span className="badge" key={c}>
+                {c}
+              </span>
+            ))}
           </div>
-          <h3>Strongest answers</h3>
-          {strongest.length ? (
-            strongest.map((r) => (
-              <p key={r.question.id}>
-                {r.question.text} <b className="accent">{r.finalScore}/10</b>
-              </p>
-            ))
-          ) : (
-            <p className="muted">Answer a question to see strengths here.</p>
-          )}
+          <p className="small muted">Saved question-order seed: {session.config.seed}</p>
         </section>
         <section className="panel">
-          <h2>
-            <Sparkles size={18} />
-            Your next study session
-          </h2>
-          {report.weak.length ? (
-            <ol>
-              {report.weak.map((c) => (
+          <h2>Your next study session</h2>
+          {s.weak.length ? (
+            <ul>
+              {s.weak.map((c) => (
                 <li key={c}>
-                  Review <b>{c}</b>: trace the cited lines with a normal input and one boundary
-                  input, then explain the reasoning aloud.
+                  Review <b>{c}</b>. Explain the cited statement, check its assumptions, and compare
+                  with the reference checklist.
                 </li>
               ))}
-            </ol>
+            </ul>
           ) : (
-            <p>
-              Explain one solution without looking at the notes, then test your reasoning with a new
-              boundary input.
-            </p>
+            <p>Choose a different program and explain one boundary case aloud.</p>
           )}
           <p className="muted small">
-            Overall = sum of final main-question scores ÷ ({session.total} × 10) × 100. Skips count
-            as 0. With a follow-up, final = mean of initial and follow-up scores; both are retained.
+            Weak topics come from incorrect/skipped MC answers or your written/follow-up
+            self-assessments.
           </p>
         </section>
       </div>
       <div className="actions no-print">
-        <button className="btn primary" onClick={onRetry} disabled={!report.weak.length}>
+        <button className="btn primary" disabled={!s.weak.length} onClick={onRetry}>
           <RotateCcw size={16} />
-          Retry Incorrect Questions
+          Retry Weak Questions
         </button>
         <button className="btn secondary" onClick={onNew}>
           New Interview
@@ -131,10 +120,15 @@ export function PracticeReport({
         </button>
         <button
           className="btn ghost"
-          onClick={() => downloadJson(session, `codedefense-report-${session.id}.json`)}
+          onClick={() =>
+            downloadJson(
+              { format: 'codedefense-free', version: 2, sessions: [session] },
+              'codedefense-practice-report.json',
+            )
+          }
         >
           <Download size={16} />
-          Download Practice Report
+          Download Study Report
         </button>
       </div>
       <h2 className="section-title">Question by question</h2>
@@ -144,50 +138,44 @@ export function PracticeReport({
             <span className="eyebrow">
               QUESTION {i + 1} · {r.question.concept}
             </span>
-            <span className="badge">{r.skipped ? 'Skipped' : `${r.finalScore}/10`}</span>
+            <span className="badge">
+              {r.skipped
+                ? 'Skipped'
+                : r.correct === null
+                  ? `Self-assessed: ${r.assessment || 'unassessed'}`
+                  : r.choice === r.question.correctIndex
+                    ? 'MC: correct'
+                    : 'MC: incorrect'}
+            </span>
           </div>
           <h3>{r.question.text}</h3>
           <p className="muted small">
             Source lines {r.question.evidence.start}–{r.question.evidence.end}
           </p>
           <pre>{r.question.evidence.snippet}</pre>
-          <h4>Your answer</h4>
-          <p className="preserve">{r.answer || 'Skipped'}</p>
-          <h4>Expected key points</h4>
+          <h4>Your response</h4>
+          <p className="preserve">
+            {r.skipped ? 'Skipped' : r.correct === null ? r.answer : r.question.choices[r.choice!]}
+          </p>
+          <h4>Reference explanation</h4>
+          <p>{r.question.explanation}</p>
+          <h4>Expected points to check</h4>
           <ul>
-            {r.feedback.expected.map((p, j) => (
+            {r.question.expected.map((p, j) => (
               <li key={j}>{p}</li>
             ))}
           </ul>
-          <h4>Evaluation · initial {r.initialScore}/10</h4>
-          <p>{r.feedback.explanation}</p>
-          {r.feedback.missing.length > 0 && (
-            <>
-              <h4>Most important gaps</h4>
-              <ul>
-                {r.feedback.missing.map((m, j) => (
-                  <li key={j}>{m}</li>
-                ))}
-              </ul>
-            </>
-          )}
-          <p className="muted small">Rubric: {r.feedback.rubric}</p>
-          <h4>Example correct answer</h4>
-          <p>{r.feedback.modelAnswer}</p>
           {r.followUp && (
             <div className="followup-review">
               <h4>
-                Follow-up · {r.followUp.skipped ? 'Skipped' : `${r.followUp.feedback.score}/10`}
-              </h4>
-              <p>{r.followUp.question.text}</p>
-              <p className="preserve">Your answer: {r.followUp.answer}</p>
-              <p>{r.followUp.feedback.explanation}</p>
-              <p>Example: {r.followUp.feedback.modelAnswer}</p>
-              <p className="muted small">
+                Follow-up ·{' '}
                 {r.followUp.skipped
-                  ? `Initial score retained: ${r.finalScore}/10`
-                  : `Final: (${r.initialScore} + ${r.followUp.feedback.score}) ÷ 2 = ${r.finalScore}/10`}
-              </p>
+                  ? 'Skipped'
+                  : `Self-assessed: ${r.followUp.assessment || 'unassessed'}`}
+              </h4>
+              <p>{r.question.followUp?.text}</p>
+              <p className="preserve">{r.followUp.answer || 'Skipped'}</p>
+              <p>{r.question.followUp?.explanation}</p>
             </div>
           )}
         </article>

@@ -1,5 +1,70 @@
 @import 'tailwindcss';
 
+.answer-label + p {
+  margin-top: 14px;
+}
+
+.choice-list,
+.assessment-list {
+  border: 0;
+  padding: 0;
+  margin: 24px 0 15px;
+  min-width: 0;
+}
+.choice-list legend,
+.assessment-list legend {
+  font-size: 12px;
+  color: #b6c4dc;
+  margin-bottom: 12px;
+}
+.choice-list label {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border: 1px solid #343d52;
+  background: #121923;
+  padding: 13px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.8;
+  margin: 9px 0;
+}
+.choice-list label.selected {
+  border-color: #b3a0ef;
+  background: #282137;
+}
+.choice-list input[type='radio'] {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  accent-color: #b6a1ff;
+  margin: 4px 0 0;
+  padding: 0;
+}
+.assessment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.assessment-list .btn {
+  white-space: normal;
+  text-align: left;
+  justify-content: flex-start;
+  font-size: 12px;
+}
+.feedback .btn.full {
+  margin-top: 12px;
+}
+.report .score-panel .score-number > span {
+  font-size: 13px;
+  letter-spacing: 0;
+}
+.history-list {
+  margin-top: 20px;
+}
+
 .voice-input {
   margin-top: 12px;
 }

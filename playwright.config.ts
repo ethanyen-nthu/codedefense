@@ -16,10 +16,9 @@ export default defineConfig({
     { name: 'mobile-chromium', use: { ...devices['Pixel 7'] } },
   ],
   webServer: {
-    command: 'pnpm run start --hostname 127.0.0.1',
+    command: 'pnpm run start',
     url: 'http://127.0.0.1:3000',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120000,
-    env: { APP_ORIGIN: 'http://127.0.0.1:3000' },
   },
 });
