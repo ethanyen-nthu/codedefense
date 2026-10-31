@@ -6,7 +6,7 @@ Verified locally on Windows / Node 24.22.1. These are executed results, not assu
 | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | TypeScript                  | Passed `pnpm run typecheck`                                                                                                                               |
 | ESLint                      | Passed `pnpm run lint` with no warnings                                                                                                                   |
-| Unit / backend integration  | 72 passed across 8 files; mocked provider/store/security boundaries                                                                                       |
+| Unit / backend integration  | 73 passed across 8 files; mocked provider/store/security boundaries                                                                                       |
 | Production build            | Passed Next.js 16.4.3 webpack production build                                                                                                            |
 | Browser journeys            | 18 passed across desktop and mobile Chromium                                                                                                              |
 | Visual inspection           | Desktop homepage and mobile interview inspected; desktop editor/interview/report and tablet screenshots captured                                          |

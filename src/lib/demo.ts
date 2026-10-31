@@ -462,12 +462,17 @@ export function demoAction(
   };
   if (s.stage === 'followup') {
     const r = s.records.at(-1)!;
-    r.followUp = { question: s.current!, answer, feedback: f, skipped: action === 'skip' };
+    r.followUp = {
+      question: s.current!,
+      answer: action === 'skip' ? '' : answer,
+      feedback: f,
+      skipped: action === 'skip',
+    };
     r.finalScore = action === 'skip' ? r.initialScore : finalScore(r.initialScore, points);
   } else {
     const r: AnswerRecord = {
       question: publicQ(q),
-      answer,
+      answer: action === 'skip' ? '' : answer,
       feedback: f,
       skipped: action === 'skip',
       initialScore: points,

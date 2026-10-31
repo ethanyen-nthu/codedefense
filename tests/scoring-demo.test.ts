@@ -4,6 +4,10 @@ import { createDemo, demoAction, retryDemo, startDemo } from '@/lib/demo';
 import { configSchema } from '@/lib/schemas';
 const begin = () => startDemo(createDemo(), configSchema.parse({ count: 5 }));
 describe('deterministic grading and practice reports', () => {
+  it('a skipped draft is not recorded as a graded answer', () => {
+    const s = demoAction(begin(), 'skip', 'A draft that was never submitted');
+    expect(s.records[0]).toMatchObject({ answer: '', skipped: true, initialScore: 0 });
+  });
   it('skipping a follow-up retains the initial answer and score', () => {
     let s = demoAction(begin(), 'answer', 'remainder');
     s = demoAction(s, 'next');
