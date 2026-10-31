@@ -19,7 +19,7 @@ export function PracticeReport({
     <div className="report content">
       <div className="page-heading">
         <div>
-          <p className="eyebrow">THE DEBRIEF · FREE EDITION</p>
+          <p className="eyebrow">CODETA · INTERVIEW SUMMARY</p>
           <h1>Your code. Better understood.</h1>
           <p className="muted">
             {session.context.title || 'C++ practice'} ·{' '}
@@ -122,8 +122,8 @@ export function PracticeReport({
           className="btn ghost"
           onClick={() =>
             downloadJson(
-              { format: 'codedefense-free', version: 2, sessions: [session] },
-              'codedefense-practice-report.json',
+              { format: 'codeta', version: 3, sessions: [session] },
+              'codeta-practice-report.json',
             )
           }
         >
@@ -131,12 +131,45 @@ export function PracticeReport({
           Download Study Report
         </button>
       </div>
+      <section className="panel">
+        <h2>Practice signals</h2>
+        <p>
+          {s.hints} hints recorded · {s.skipped} skipped
+        </p>
+        <p className="small muted">
+          Most practiced:{' '}
+          {s.practiced
+            .slice(0, 4)
+            .map((c) => `${c.concept} (${c.count})`)
+            .join(', ') || 'No responses yet'}
+          .
+        </p>
+        {s.suggestedDifficulty && (
+          <p>
+            Three recent strong, hint-free responses: consider {s.suggestedDifficulty} next time.
+            Your selected difficulty has not changed.
+          </p>
+        )}
+        {session.difficultyChanges.length > 0 && (
+          <>
+            <h3>Difficulty changes</h3>
+            <ul>
+              {session.difficultyChanges.map((c, i) => (
+                <li key={i}>
+                  After {c.after} recorded: {c.from} → {c.to} (
+                  {c.reason === 'adaptive' ? 'Adaptive Practice enabled' : 'chosen by you'}).
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
       <h2 className="section-title">Question by question</h2>
       {session.records.map((r, i) => (
         <article className="panel answer-review" key={r.question.id}>
           <div className="row between">
             <span className="eyebrow">
-              QUESTION {i + 1} · {r.question.concept}
+              QUESTION {i + 1} · {r.question.concept} · {r.difficulty} · {r.question.grounding}
             </span>
             <span className="badge">
               {r.skipped

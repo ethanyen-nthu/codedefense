@@ -5,6 +5,7 @@ import { EditorView, Decoration, ViewPlugin } from '@codemirror/view';
 import { basicSetup } from 'codemirror';
 import { cpp } from '@codemirror/lang-cpp';
 import { oneDark } from '@codemirror/theme-one-dark';
+import { useTheme } from './theme';
 
 export function CodeEditor({
   value,
@@ -17,6 +18,7 @@ export function CodeEditor({
   readOnly?: boolean;
   highlight?: { start: number; end: number };
 }) {
+  const { resolved } = useTheme();
   const host = useRef<HTMLDivElement>(null),
     view = useRef<EditorView | null>(null),
     callback = useRef(onChange);
@@ -50,7 +52,20 @@ export function CodeEditor({
         extensions: [
           basicSetup,
           cpp(),
-          oneDark,
+          ...(resolved === 'dark' ? [oneDark] : []),
+          EditorView.theme(
+            {
+              '&': { backgroundColor: 'var(--editor)', color: 'var(--text)' },
+              '.cm-gutters': {
+                backgroundColor: 'var(--editor)',
+                color: 'var(--muted)',
+                borderRight: '1px solid var(--border)',
+              },
+              '.cm-activeLine,.cm-activeLineGutter': { backgroundColor: 'var(--subtle)' },
+              '.cm-cursor': { borderLeftColor: 'var(--accent)' },
+            },
+            { dark: resolved === 'dark' },
+          ),
           EditorState.readOnly.of(readOnly),
           EditorView.editable.of(!readOnly),
           EditorView.contentAttributes.of({
@@ -70,7 +85,7 @@ export function CodeEditor({
       editor.destroy();
       view.current = null;
     };
-  }, [readOnly, highlight?.start, highlight?.end]);
+  }, [readOnly, highlight?.start, highlight?.end, resolved]);
   useEffect(() => {
     initial.current = value;
     const editor = view.current;

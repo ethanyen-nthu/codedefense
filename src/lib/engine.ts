@@ -154,12 +154,7 @@ export function generateQuestions(
       grounding: t.grounding || 'Language rule',
       simple: fill(t.simple || simpleRule(c.kind)),
       hint: `Start with ${c.kind} at line ${c.evidence.start}. ${simpleRule(c.kind)} State what the source supports and which inputs or types you assume.`,
-      expected: (
-        t.points || [
-          reference,
-          'Connect your explanation to the cited expression, and state any input or type assumptions.',
-        ]
-      ).map(fill),
+      expected: (t.points || [simpleRule(c.kind), applicationCheck(c.kind)]).map(fill),
       explanation: reference,
       choices: options.map((o) => o.text),
       choiceExplanations: options.map((o) => o.why),
@@ -211,6 +206,41 @@ const simpleRules: Partial<Record<Analysis['constructs'][number]['kind'], string
 };
 function simpleRule(kind: Analysis['constructs'][number]['kind']) {
   return simpleRules[kind] || 'Identify the statement and explain its rule in your own words.';
+}
+function applicationCheck(kind: Analysis['constructs'][number]['kind']) {
+  const checks: Partial<Record<Analysis['constructs'][number]['kind'], string>> = {
+    variable:
+      'Locate the actual declaration and distinguish an independent object from a reference or pointer.',
+    initialization:
+      'Identify the initializer and when it runs; distinguish initialization from later assignment.',
+    cin: 'Explain success, failure and input-domain checks using the actual extraction and surrounding paths.',
+    cout: 'Identify what values or text are inserted and which separators the source explicitly supplies.',
+    while:
+      'Identify the exact condition and updates; consider entry at the boundary and every continuing path.',
+    for: 'Relate initialization, condition, body and update to the actual bounds and any indexed elements.',
+    'do-while': 'Explain the first body execution separately from subsequent condition tests.',
+    'nested-loop': 'Separate the two bounds and state any independence or fixed-count assumption.',
+    array: 'Identify the actual element count and justify every proposed element index.',
+    recursion:
+      'Locate a stopping path and argue progress for stated inputs; do not assume either is proved by parsing.',
+    modulo:
+      'Check built-in integral operand assumptions, a nonzero divisor, and any sign or digit interpretation.',
+    'integer-division':
+      'State the integral operand evidence and check valid division before applying truncation toward zero.',
+    break: 'Identify the actual nearest loop or switch and where control continues afterward.',
+    continue: 'Identify the actual loop and whether a body update can be bypassed.',
+    parameter:
+      'Use the actual declarator to distinguish a value copy from a reference; check constness where relevant.',
+    comparison:
+      'Name both operands and the relation, then justify an equality or boundary example.',
+    and: 'State the built-in assumption and identify when the right operand is skipped.',
+    or: 'State the built-in assumption and identify when the right operand is skipped.',
+    scope: 'Tie visibility and lifetime to actual declarations, blocks and declaration order.',
+  };
+  return (
+    checks[kind] ||
+    'Apply the stated rule to the cited source and explicitly name any input, type, or reachability assumptions.'
+  );
 }
 export function createSession(
   code: string,

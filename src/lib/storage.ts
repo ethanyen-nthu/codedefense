@@ -30,6 +30,10 @@ export function unreadHistory() {
 }
 export function validateSession(value: unknown): PracticeSession {
   const s = sessionSchema.parse(value);
+  const original = value as { records: Record<string, unknown>[] };
+  s.records.forEach((record, i) => {
+    if (!('difficulty' in original.records[i])) record.difficulty = s.config.difficulty;
+  });
   if (
     s.index > s.questions.length ||
     s.records.length > s.questions.length ||

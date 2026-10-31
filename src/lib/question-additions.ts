@@ -838,7 +838,7 @@ export const additions: Template[] = entries.map(
           ? 'Hypothetical change'
           : 'Your source',
     points: [
-      reference,
+      simple,
       format === 'Code Tracing'
         ? 'Trace only the exact stated example; do not transfer its result to arbitrary submitted code.'
         : 'Identify the cited evidence and state the assumptions your argument needs.',
