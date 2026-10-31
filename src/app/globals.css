@@ -2150,6 +2150,10 @@ progress::-moz-progress-bar {
   }
 }
 @media print {
+  :root {
+    color-scheme: light !important;
+    background: white !important;
+  }
   body {
     color-scheme: light;
     background: white;
@@ -2202,6 +2206,17 @@ progress::-moz-progress-bar {
   }
   .report-top {
     grid-template-columns: 180px 1fr;
+  }
+  .report-stats > div {
+    min-width: 50px;
+  }
+  .report-stats {
+    gap: 8px;
+  }
+  h2,
+  h3,
+  h4 {
+    break-after: avoid-page;
   }
   .report .actions {
     display: none !important;
