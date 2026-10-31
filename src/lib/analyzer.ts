@@ -1,6 +1,6 @@
 import { Parser, Language, type Node as SyntaxNode } from 'web-tree-sitter';
 import { validateSource, sourceSlice } from './source';
-import type { Analysis, Construct, Kind } from './schemas';
+import type { Analysis, Construct, Kind, Features } from './schemas';
 let initialization: Promise<Language> | undefined;
 export function initializeParser(
   paths = { coreWasm: '/parser/tree-sitter.wasm', cppWasm: '/parser/tree-sitter-cpp.wasm' },
@@ -110,6 +110,77 @@ export async function analyzeCpp(
       quotes = new Map<string, string>();
     let evidenceChars = 0,
       evidenceLimited = false;
+    function featuresFor(n: SyntaxNode, kind: Kind, name: string, detail: string): Features {
+      const conditionNode = n.childForFieldName('condition');
+      const condition = conditionNode?.childForFieldName('value') || conditionNode;
+      const expr =
+        condition?.type === 'parenthesized_expression' ? condition.namedChild(0) : condition;
+      const op = n.childForFieldName('operator')?.text || '';
+      const typeNode = n.childForFieldName('type') || n.parent?.childForFieldName('type') || null;
+      const type = builtinType(typeNode) || '';
+      const tags: string[] = [];
+      if (type) tags.push('primitive');
+      if (detail.startsWith('Range-based')) tags.push('range-for');
+      if (kind === 'for' && n.type === 'for_statement') tags.push('conventional-for');
+      if (n.childForFieldName('condition')) tags.push('condition');
+      if (
+        ['while', 'for', 'do-while'].includes(kind) &&
+        expr?.type === 'binary_expression' &&
+        expr.childForFieldName('operator')?.text === '>' &&
+        expr.childForFieldName('right')?.text === '0' &&
+        expr.childForFieldName('left')?.type === 'identifier' &&
+        integralType(inferPrimitive(expr.childForFieldName('left'), n, symbols))
+      )
+        tags.push('positive-condition');
+      if (['+=', '-=', '*=', '/=', '%='].includes(op)) tags.push('compound-assignment');
+      if (detail === 'divisor:10') tags.push('mod10');
+      if (kind === 'integer-division' && n.childForFieldName('right')?.text === '10')
+        tags.push('divide10');
+      if (detail === 'target:switch') tags.push('break-switch');
+      if (detail === 'target:loop') tags.push('break-loop');
+      if (detail === 'switch-loop') tags.push('switch-loop');
+      if (kind === 'continue') {
+        let parent = n.parent;
+        while (parent && !loops.has(parent.type) && parent.type !== 'function_definition')
+          parent = parent.parent;
+        if (parent?.type === 'while_statement') tags.push('continue-while');
+      }
+      if (kind === 'parameter') {
+        const declarator = n.childForFieldName('declarator');
+        if (declarator?.type === 'reference_declarator') tags.push('reference-parameter');
+        if (declarator?.type === 'identifier' && type) tags.push('value-parameter');
+      }
+      if (kind === 'variable' && !detail.startsWith('indirect:') && type)
+        tags.push('primitive-variable');
+      if (
+        kind === 'initialization' &&
+        n.childForFieldName('declarator')?.type === 'identifier' &&
+        type
+      ) {
+        tags.push('primitive-initializer');
+        if (n.childForFieldName('value')?.type === 'identifier') tags.push('value-copy');
+        const fn = containing(n, 'function_definition');
+        if (
+          fn &&
+          symbols.get(fn.id)?.get(name)?.length === 1 &&
+          (accumulatorUpdates.get(fn.id)?.get(name) || 0) > n.endIndex
+        )
+          tags.push('accumulator');
+      }
+      return {
+        expression: n.text.slice(0, 400),
+        condition: expr?.text.slice(0, 400) || '',
+        left:
+          (expr?.childForFieldName('left') || n.childForFieldName('left'))?.text.slice(0, 120) ||
+          '',
+        right:
+          (expr?.childForFieldName('right') || n.childForFieldName('right'))?.text.slice(0, 120) ||
+          '',
+        operator: expr?.childForFieldName('operator')?.text || op,
+        valueType: type,
+        tags,
+      };
+    }
     function add(kind: Kind, n: SyntaxNode, name = n.text, detail = '') {
       if (constructs.length >= 1000) return;
       const key = `${kind}:${n.startIndex}:${n.endIndex}`;
@@ -129,6 +200,7 @@ export async function analyzeCpp(
         kind,
         name: name.slice(0, 120),
         detail,
+        features: featuresFor(n, kind, name, detail),
         evidence: {
           start,
           end: Math.max(start, end),
@@ -140,10 +212,21 @@ export async function analyzeCpp(
     const all = descendants(root, () => true);
     const functions = all.filter((n) => n.type === 'function_definition');
     const symbols: Symbols = new Map();
+    const accumulatorUpdates = new Map<number, Map<string, number>>();
     // Index declarations once, rather than scanning an entire function for each division.
     for (const node of all) {
       const fn = containing(node, 'function_definition');
       if (!fn) continue;
+      if (
+        node.type === 'assignment_expression' &&
+        node.childForFieldName('operator')?.text === '+=' &&
+        node.childForFieldName('left')?.type === 'identifier'
+      ) {
+        const updates = accumulatorUpdates.get(fn.id) || new Map<string, number>();
+        const key = node.childForFieldName('left')!.text;
+        updates.set(key, Math.max(updates.get(key) || 0, node.startIndex));
+        accumulatorUpdates.set(fn.id, updates);
+      }
       const names =
         node.type === 'declaration'
           ? node
